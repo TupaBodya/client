@@ -2,18 +2,27 @@
   <div class="auth-container">
     <!-- Видео фон -->
     <video 
+      ref="videoRef"
       autoplay 
       muted 
       loop 
       playsinline
       class="background-video"
+      @loadeddata="onVideoLoaded"
+      @error="onVideoError"
     >
-      <source src="/videos/auth-background.mp4" type="video/mp4">
-      <!-- Фолбэк если видео не поддерживается -->
+      <source :src="videoUrl" type="video/mp4">
+      Ваш браузер не поддерживает видео.
     </video>
     
     <!-- Затемнение поверх видео -->
     <div class="video-overlay"></div>
+    
+    <!-- Загрузочный экран для видео -->
+    <div v-if="videoLoading" class="video-loading glassmorphism">
+      <i class="fas fa-spinner fa-spin"></i>
+      <p>Загрузка видео...</p>
+    </div>
     
     <div class="auth-card glassmorphism">
       <div class="auth-header">
@@ -110,6 +119,11 @@
         {{ error }}
       </div>
 
+      <div v-if="videoError" class="error-message glassmorphism">
+        <i class="fas fa-video-slash"></i>
+        Не удалось загрузить видео. Работаем над этим!
+      </div>
+
       <div class="auth-footer">
         <p>Карта БГИТУ &copy; 2025</p>
       </div>
@@ -138,8 +152,18 @@ export default {
     const isLoginMode = ref(true);
     const error = ref('');
     const loading = ref(false);
-    const isMuted = ref(true); // По умолчанию без звука
-    const videoElement = ref(null);
+    const isMuted = ref(true);
+    const videoLoading = ref(true);
+    const videoError = ref(false);
+    const videoRef = ref(null);
+    
+    // Прямая ссылка на видео с Яндекс.Диска
+    const videoUrl = ref('http://www.youtube.com/embed/ARSp4JOuq1o');
+    // Альтернативные ссылки на случай проблем с основной
+    const fallbackVideoUrls = [
+      'https://storage.yandexcloud.net/video-backgrounds/university-campus.mp4',
+      'https://drive.google.com/uc?export=download&id=YOUR_GOOGLE_DRIVE_ID'
+    ];
     
     const formData = ref({
       username: '',
@@ -151,7 +175,6 @@ export default {
     const toggleMode = () => {
       isLoginMode.value = !isLoginMode.value;
       error.value = '';
-      // Очищаем форму при переключении режима
       formData.value = {
         username: '',
         email: '',
@@ -162,8 +185,29 @@ export default {
     
     const toggleMute = () => {
       isMuted.value = !isMuted.value;
-      if (videoElement.value) {
-        videoElement.value.muted = isMuted.value;
+      if (videoRef.value) {
+        videoRef.value.muted = isMuted.value;
+      }
+    };
+    
+    const onVideoLoaded = () => {
+      console.log('Видео успешно загружено');
+      videoLoading.value = false;
+      videoError.value = false;
+    };
+    
+    const onVideoError = (event) => {
+      console.error('Ошибка загрузки видео:', event);
+      videoLoading.value = false;
+      videoError.value = true;
+      
+      // Попробовать альтернативные источники
+      if (fallbackVideoUrls.length > 0) {
+        const nextUrl = fallbackVideoUrls.shift();
+        console.log('Пробуем альтернативный источник:', nextUrl);
+        videoUrl.value = nextUrl;
+        videoLoading.value = true;
+        videoError.value = false;
       }
     };
     
@@ -187,24 +231,18 @@ export default {
 
         const response = await axios.post(endpoint, payload);
         
-        // Сохраняем токен и данные пользователя
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));
         
-        // Перенаправляем на главную страницу
         await router.push('/');
-        
-        // Обновляем страницу для применения изменений
         window.location.reload();
         
       } catch (err) {
         console.error('Auth error:', err);
         
-        // Улучшенная обработка ошибок
         if (err.response?.data?.error) {
           const serverError = err.response.data.error;
           
-          // Руссификация стандартных ошибок
           if (serverError.includes('User already exists')) {
             error.value = 'Пользователь с таким именем или email уже существует';
           } else if (serverError.includes('Invalid credentials')) {
@@ -226,31 +264,31 @@ export default {
       }
     };
     
-    // Инициализация видео
     onMounted(() => {
-      videoElement.value = document.querySelector('.background-video');
-      if (videoElement.value) {
-        videoElement.value.muted = isMuted.value;
+      if (videoRef.value) {
+        videoRef.value.muted = isMuted.value;
         
-        // Попытка воспроизведения видео
         const playVideo = async () => {
           try {
-            await videoElement.value.play();
+            await videoRef.value.play();
           } catch (err) {
             console.log('Автовоспроизведение видео заблокировано:', err);
-            // Показываем кнопку для ручного запуска если нужно
           }
         };
         
-        playVideo();
+        // Ждем загрузки видео перед попыткой воспроизведения
+        if (videoRef.value.readyState >= 3) {
+          playVideo();
+        } else {
+          videoRef.value.addEventListener('loadeddata', playVideo);
+        }
       }
     });
     
-    // Очистка при размонтировании
     onUnmounted(() => {
-      if (videoElement.value) {
-        videoElement.value.pause();
-        videoElement.value = null;
+      if (videoRef.value) {
+        videoRef.value.pause();
+        videoRef.value = null;
       }
     });
     
@@ -260,9 +298,15 @@ export default {
       error,
       loading,
       isMuted,
+      videoLoading,
+      videoError,
+      videoRef,
+      videoUrl,
       toggleMode,
       toggleMute,
-      handleSubmit
+      handleSubmit,
+      onVideoLoaded,
+      onVideoError
     };
   }
 };
@@ -292,6 +336,8 @@ export default {
   transform: translateX(-50%) translateY(-50%);
   object-fit: cover;
   z-index: -2;
+  opacity: 1;
+  transition: opacity 0.5s ease;
 }
 
 /* Затемнение поверх видео для лучшей читаемости */
@@ -303,6 +349,30 @@ export default {
   height: 100%;
   background: rgba(0, 0, 0, 0.4);
   z-index: -1;
+}
+
+/* Индикатор загрузки видео */
+.video-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 20px 30px;
+  border-radius: 12px;
+  text-align: center;
+  z-index: 1;
+  color: #4361ee;
+  font-weight: 500;
+}
+
+.video-loading i {
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+}
+
+.video-loading p {
+  margin: 0;
+  font-size: 0.9rem;
 }
 
 .glassmorphism {
@@ -715,5 +785,4 @@ button:focus-visible {
     color: #a0aec0;
   }
 }
-
 </style>
