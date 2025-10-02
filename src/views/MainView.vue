@@ -665,10 +665,8 @@ export default {
           boundsPadding: 0.6
         });
         
-        // Устанавливаем начальный вид
-        setTimeout(() => {
-          resetView();
-        }, 100);
+        // Устанавливаем начальный вид БЕЗ ЗАДЕРЖКИ
+        resetView();
       }
     };
 
@@ -686,10 +684,8 @@ export default {
           boundsPadding: 0.6
         });
         
-        // Восстанавливаем позицию
-        setTimeout(() => {
-          resetView();
-        }, 50);
+        // Восстанавливаем позицию БЕЗ ЗАДЕРЖКИ
+        resetView();
       } else if (mapContent.value) {
         // Если panzoom не существует, создаем новый
         initializePanzoom();
@@ -1027,10 +1023,8 @@ export default {
       if (viewMode.value === '3d') {
         load3DFloor();
       } else {
-        // В 2D режиме сбрасываем вид
-        setTimeout(() => {
-          resetView();
-        }, 100);
+        // В 2D режиме сбрасываем вид БЕЗ ЗАДЕРЖКИ
+        resetView();
       }
     };
 
@@ -1575,11 +1569,9 @@ export default {
     watch([selectedCorpus, selectedFloor], async () => {
       mapLoaded.value = await checkImage(currentMapImage.value);
       
-      // Сбрасываем вид только в 2D режиме
+      // Сбрасываем вид только в 2D режиме БЕЗ ЗАДЕРЖКИ
       if (viewMode.value === '2d') {
-        setTimeout(() => {
-          resetView();
-        }, 100);
+        resetView();
       }
     });
 

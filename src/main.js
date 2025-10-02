@@ -4,7 +4,7 @@ import router from './router';
 import axios from 'axios';
 
 // Configure axios
-axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001';
+axios.defaults.baseURL = import.meta.env.VITE_API_BASE_URL || 'https://tupabodya-server-edeb.twc1.net/';
 
 // Add request interceptor for auth
 axios.interceptors.request.use(config => {
