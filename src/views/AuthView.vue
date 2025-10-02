@@ -9,6 +9,7 @@
       class="background-video"
     >
       <source src="/videos/auth-background.mp4" type="video/mp4">
+      <!-- Фолбэк если видео не поддерживается -->
     </video>
     
     <!-- Затемнение поверх видео -->
@@ -716,3 +717,5 @@ button:focus-visible {
 }
 
 </style>
+
+Переделай видео на фоне, чтобы оно загружалось по ссылке https://disk.yandex.ru/i/33gjRJQQ16HbtA
