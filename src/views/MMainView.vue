@@ -1501,7 +1501,7 @@ export default {
         const adjustments = {
             '1': {
             '1': { scaleX: 0.2, scaleY: 0.2, offsetX: 0, offsetY: 0 },
-            '2': { scaleX: 1.0, scaleY: 1.0, offsetX: 0, offsetY: 0 },
+            '2': { scaleX: 0.16, scaleY: 0.16, offsetX: -2, offsetY: 184 },
             '3': { scaleX: 1.0, scaleY: 1.0, offsetX: 0, offsetY: 0 },
             '4': { scaleX: 1.0, scaleY: 1.0, offsetX: 0, offsetY: 0 }
             },
