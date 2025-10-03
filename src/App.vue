@@ -39,7 +39,6 @@ body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background-color: #f5f7fa;
   color: var(--dark-color);
-  line-height: 1.6;
   height: 100%;
   overflow-x: hidden;
   position: relative;

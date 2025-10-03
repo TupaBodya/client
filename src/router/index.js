@@ -3,7 +3,14 @@ import AdminView from '../views/AdminView.vue';
 import AuthView from '../views/AuthView.vue';
 import ProfileView from '../views/ProfileView.vue';
 import MainView from '../views/MainView.vue';
+import MMainView from '../views/MMainView.vue'; // Импортируем мобильную версию
 import UniversityMapView from '../views/UniversityMapView.vue';
+
+// Функция для определения мобильного устройства
+const isMobileDevice = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+         window.innerWidth <= 768;
+};
 
 const routes = [
   {
@@ -15,7 +22,7 @@ const routes = [
   {
     path: '/buildings',
     name: 'main',
-    component: MainView,
+    component: isMobileDevice() ? MMainView : MainView, // Динамический выбор компонента
     meta: { requiresAuth: false }
   },
   {
@@ -73,9 +80,34 @@ const router = createRouter({
   routes
 });
 
+// Обработчик изменения размера окна (для переключения при повороте экрана)
+let currentIsMobile = isMobileDevice();
+
+const handleResize = () => {
+  const newIsMobile = isMobileDevice();
+  if (newIsMobile !== currentIsMobile) {
+    currentIsMobile = newIsMobile;
+    
+    // Обновляем маршрут, если находимся на странице buildings
+    if (router.currentRoute.value.name === 'main') {
+      router.replace({
+        ...router.currentRoute.value,
+        component: newIsMobile ? MMainView : MainView
+      });
+    }
+  }
+};
+
+window.addEventListener('resize', handleResize);
+
 router.beforeEach(async (to, from, next) => {
   const token = localStorage.getItem('token');
   const user = JSON.parse(localStorage.getItem('user'));
+
+  // Обновляем компонент для маршрута buildings при каждой навигации
+  if (to.name === 'main') {
+    to.matched[0].components.default = isMobileDevice() ? MMainView : MainView;
+  }
 
   if (to.meta.requiresAuth && !token) {
     next('/auth');

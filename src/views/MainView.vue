@@ -649,7 +649,7 @@ export default {
         // Тщательно очищаем 3D ресурсы
         cleanup3D();
         
-        // ВАЖНО: Восстанавливаем panzoom без ограничений
+        // Восстанавливаем panzoom
         await nextTick();
         restorePanzoom();
       }
@@ -665,18 +665,17 @@ export default {
           boundsPadding: 0.6
         });
         
-        // Устанавливаем начальный вид БЕЗ ЗАДЕРЖКИ
-        resetView();
+        // Устанавливаем начальный вид
+        setTimeout(() => {
+          resetView();
+        }, 0);
       }
     };
 
     const restorePanzoom = () => {
-      // Если panzoom уже существует, просто включаем его
       if (panzoomInstance && mapContent.value) {
-        // Перепривязываем события к элементу
         panzoomInstance.dispose();
         
-        // Создаем новый экземпляр без ограничений
         panzoomInstance = panzoom(mapContent.value, {
           maxZoom: 5,
           minZoom: 0.5,
@@ -684,10 +683,10 @@ export default {
           boundsPadding: 0.6
         });
         
-        // Восстанавливаем позицию БЕЗ ЗАДЕРЖКИ
-        resetView();
+        setTimeout(() => {
+          resetView();
+        }, 0);
       } else if (mapContent.value) {
-        // Если panzoom не существует, создаем новый
         initializePanzoom();
       }
     };
@@ -1023,8 +1022,9 @@ export default {
       if (viewMode.value === '3d') {
         load3DFloor();
       } else {
-        // В 2D режиме сбрасываем вид БЕЗ ЗАДЕРЖКИ
-        resetView();
+        setTimeout(() => {
+          resetView();
+        }, 100);
       }
     };
 
@@ -1091,7 +1091,7 @@ export default {
       threeDScene.value.innerHTML = '';
       threeDScene.value.appendChild(renderer.domElement);
 
-      // Controls с ограничениями
+      // Controls
       controls = new OrbitControls(camera, renderer.domElement);
       controls.enableDamping = true;
       controls.dampingFactor = 0.05;
@@ -1397,7 +1397,6 @@ export default {
 
     const onWindowResize = () => {
       if (viewMode.value === '3d') {
-        // Только для 3D режима
         if (camera && renderer && threeDScene.value) {
           camera.aspect = threeDScene.value.clientWidth / threeDScene.value.clientHeight;
           camera.updateProjectionMatrix();
@@ -1456,7 +1455,6 @@ export default {
       animationFrameId = requestAnimationFrame(animate);
       
       if (controls) {
-        // Дополнительная проверка ограничений
         if (camera.position.y < 1) {
           camera.position.y = 1;
         }
@@ -1569,9 +1567,11 @@ export default {
     watch([selectedCorpus, selectedFloor], async () => {
       mapLoaded.value = await checkImage(currentMapImage.value);
       
-      // Сбрасываем вид только в 2D режиме БЕЗ ЗАДЕРЖКИ
+      // Сбрасываем вид только в 2D режиме
       if (viewMode.value === '2d') {
-        resetView();
+        setTimeout(() => {
+          resetView();
+        }, 0);
       }
     });
 
@@ -1694,7 +1694,6 @@ export default {
   font-weight: 700;
   color: #2d3748;
   letter-spacing: -0.5px;
-  line-height: normal;
 }
 
 .logo i {
@@ -2741,80 +2740,6 @@ export default {
   }
 }
 
-/* Адаптивность */
-@media (max-width: 768px) {
-  .top-nav {
-    padding: 0 16px;
-    height: 64px;
-  }
-  
-  .logo {
-    font-size: 1.3rem;
-  }
-  
-  .logo i {
-    font-size: 1.5rem;
-  }
-  
-  .nav-buttons {
-    gap: 2px;
-    padding: 2px;
-    border-radius: 10px;
-  }
-  
-  .nav-btn {
-    padding: 8px 12px;
-    font-size: 0.9rem;
-  }
-  
-  .btn-text {
-    display: none;
-  }
-  
-  .side-panel {
-    width: 300px;
-    padding: 20px;
-    top: 64px;
-    height: calc(100vh - 64px);
-  }
-  
-  .panel-title {
-    font-size: 1.2rem;
-  }
-  
-  .panel-title::after {
-    width: 30px;
-  }
-  
-  .modal-container {
-    padding: 20px;
-  }
-  
-  .gallery-image {
-    height: 160px;
-  }
-  
-  .floor-controls {
-    bottom: 16px;
-  }
-  
-  .floor-btn {
-    padding: 6px 12px;
-    font-size: 0.85rem;
-  }
-  
-  .three-d-controls {
-    top: 16px;
-    right: 16px;
-  }
-  
-  .audience-info-3d {
-    top: 16px;
-    left: 16px;
-    max-width: 250px;
-  }
-}
-
 .loading-overlay {
   position: absolute;
   top: 0;
@@ -2897,90 +2822,6 @@ export default {
 
 .floor-btn.loading .loading-spinner {
   margin-right: 8px;
-}
-
-@media (max-width: 768px) {
-  .loading-content {
-    padding: 20px;
-    min-width: 250px;
-  }
-  
-  .loading-spinner-large {
-    width: 40px;
-    height: 40px;
-  }
-}
-
-@media (max-width: 480px) {
-  .loading-content {
-    padding: 15px;
-    min-width: 200px;
-  }
-  
-  .loading-content p {
-    font-size: 0.9rem;
-  }
-}
-
-/* Анимации */
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-@keyframes slideInDown {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (max-width: 480px) {
-  .modal-header h2 {
-    font-size: 1.5rem;
-  }
-  
-  .audience-meta {
-    gap: 8px;
-  }
-  
-  .meta-item {
-    font-size: 0.85rem;
-    padding: 4px 8px;
-  }
-  
-  .schedule-table th,
-  .schedule-table td {
-    padding: 10px 12px;
-    font-size: 0.85rem;
-  }
-  
-  .section-title {
-    font-size: 1.2rem;
-  }
-  
-  .nav-buttons {
-    flex-wrap: wrap;
-    justify-content: center;
-  }
-  
-  .three-d-controls {
-    position: static;
-    flex-direction: row;
-    justify-content: center;
-    margin: 10px;
-  }
-  
-  .floor-controls-3d {
-    position: static;
-    transform: none;
-    justify-content: center;
-    margin: 10px;
-  }
 }
 
 /* Стили для секции меню */
@@ -3119,410 +2960,20 @@ export default {
   color: #e53e3e;
 }
 
-/* Адаптивность для меню */
-@media (max-width: 768px) {
-  .menu-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .menu-categories {
-    justify-content: center;
-  }
-  
-  .category-btn {
-    font-size: 0.85rem;
-    padding: 6px 12px;
-  }
+/* Анимации */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
-
-/* ===== МОБИЛЬНАЯ АДАПТАЦИЯ ===== */
-
-/* Общие медиа-запросы */
-@media (max-width: 1200px) {
-  .main-container {
-    font-size: 15px;
-  }
-}
-
-@media (max-width: 768px) {
-  .main-container {
-    font-size: 14px;
-  }
-  
-  /* Адаптивная навигация */
-  .top-nav {
-    padding: 0 12px;
-    height: 60px;
-  }
-  
-  .nav-content {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-  }
-  
-  .nav-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  
-  .burger-menu {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    width: 24px;
-    height: 18px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 0;
-  }
-  
-  .burger-menu span {
-    display: block;
-    height: 2px;
-    width: 100%;
-    background-color: #2d3748;
-    transition: all 0.3s ease;
-    border-radius: 1px;
-  }
-  
-  .burger-menu.active span:nth-child(1) {
-    transform: rotate(45deg) translate(6px, 6px);
-  }
-  
-  .burger-menu.active span:nth-child(2) {
+@keyframes slideInDown {
+  from {
     opacity: 0;
+    transform: translateY(-20px);
   }
-  
-  .burger-menu.active span:nth-child(3) {
-    transform: rotate(-45deg) translate(6px, -6px);
-  }
-  
-  .logo {
-    font-size: 1.2rem;
-  }
-  
-  .logo_img {
-    width: 40px;
-    height: 40px;
-  }
-  
-  .nav-buttons.mobile-hidden,
-  .user-actions.mobile-hidden {
-    display: none;
-  }
-  
-  .nav-buttons {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: white;
-    flex-direction: column;
-    padding: 16px;
-    gap: 8px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    z-index: 100;
-  }
-  
-  .nav-btn {
-    width: 100%;
-    justify-content: flex-start;
-    padding: 12px 16px;
-  }
-  
-  .user-actions {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    background: white;
-    padding: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    z-index: 100;
-    min-width: 200px;
-  }
-  
-  /* Боковые панели */
-  .side-panel {
-    width: 100vw;
-    height: 70vh;
-    top: auto;
-    bottom: 0;
-    border-radius: 20px 20px 0 0;
-    transform: translateY(100%);
-    transition: transform 0.3s ease;
-  }
-  
-  .side-panel.active {
+  to {
+    opacity: 1;
     transform: translateY(0);
   }
-  
-  /* Карта и элементы управления */
-  .map-container,
-  .three-d-container {
-    height: calc(100vh - 60px);
-  }
-  
-  .map-controls,
-  .three-d-controls {
-    top: 12px;
-    right: 12px;
-  }
-  
-  .control-btn {
-    width: 44px;
-    height: 44px;
-    font-size: 1.1rem;
-  }
-  
-  .floor-controls,
-  .floor-controls-3d {
-    bottom: 12px;
-    left: 12px;
-    right: 12px;
-    transform: none;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-  
-  .floor-btn {
-    padding: 10px 14px;
-    font-size: 0.9rem;
-    flex: 1;
-    min-width: 80px;
-    text-align: center;
-  }
-  
-  /* Модальные окна */
-  .modal-overlay {
-    padding: 10px;
-    align-items: flex-end;
-  }
-  
-  .modal-container {
-    max-height: 90vh;
-    border-radius: 20px 20px 0 0;
-    padding: 20px;
-    width: 100%;
-    max-width: none;
-  }
-  
-  .modal-header h2 {
-    font-size: 1.4rem;
-  }
-  
-  .audience-meta {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .meta-item {
-    width: 100%;
-    justify-content: center;
-  }
-  
-  /* Галерея */
-  .swiper-container {
-    margin: 0 -20px;
-    padding: 8px 20px;
-  }
-  
-  .gallery-image {
-    height: 140px;
-  }
-  
-  /* Расписание */
-  .schedule-table-container {
-    margin: 0 -20px;
-    padding: 0 20px;
-  }
-  
-  .schedule-table {
-    min-width: 500px;
-  }
-  
-  .schedule-table th,
-  .schedule-table td {
-    padding: 10px 8px;
-    font-size: 0.85rem;
-  }
-  
-  /* 3D сцена */
-  .three-d-scene {
-    height: 100%;
-  }
-  
-  .audience-info-3d {
-    top: 12px;
-    left: 12px;
-    right: 12px;
-    max-width: none;
-  }
 }
-
-@media (max-width: 480px) {
-  .top-nav {
-    padding: 0 8px;
-    height: 56px;
-  }
-  
-  .logo {
-    font-size: 1.1rem;
-  }
-  
-  .logo_img {
-    width: 36px;
-    height: 36px;
-  }
-  
-  .modal-container {
-    padding: 16px;
-  }
-  
-  .modal-header h2 {
-    font-size: 1.3rem;
-  }
-  
-  .section-title {
-    font-size: 1.1rem;
-  }
-  
-  .gallery-image {
-    height: 120px;
-  }
-  
-  .menu-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .menu-item-image {
-    height: 140px;
-  }
-  
-  .control-btn {
-    width: 40px;
-    height: 40px;
-  }
-  
-  .floor-btn {
-    padding: 8px 12px;
-    font-size: 0.85rem;
-  }
-}
-
-@media (max-width: 360px) {
-  .top-nav {
-    padding: 0 6px;
-  }
-  
-  .logo {
-    font-size: 1rem;
-  }
-  
-  .modal-container {
-    padding: 12px;
-  }
-  
-  .gallery-image {
-    height: 100px;
-  }
-  
-  .menu-item-image {
-    height: 120px;
-  }
-}
-
-/* Горизонтальная ориентация на мобильных */
-@media (max-height: 500px) and (orientation: landscape) {
-  .side-panel {
-    height: 90vh;
-  }
-  
-  .modal-container {
-    max-height: 95vh;
-  }
-  
-  .top-nav {
-    height: 50px;
-  }
-  
-  .map-container,
-  .three-d-container {
-    height: calc(100vh - 50px);
-  }
-}
-
-/* Поддержка устройств с вырезом */
-@supports(padding: max(0px)) {
-  .top-nav {
-    padding-top: max(12px, env(safe-area-inset-top));
-    padding-left: max(12px, env(safe-area-inset-left));
-    padding-right: max(12px, env(safe-area-inset-right));
-  }
-  
-  .main-container {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-}
-
-/* Анимации для мобильных */
-.slide-down-enter-active,
-.slide-down-leave-active {
-  transition: all 0.3s ease;
-}
-
-.slide-down-enter-from {
-  opacity: 0;
-  transform: translateY(-20px);
-}
-
-.slide-down-leave-to {
-  opacity: 0;
-  transform: translateY(-20px);
-}
-
-/* Улучшение touch-интерфейса */
-.audience-rect {
-  touch-action: manipulation;
-}
-
-.nav-btn,
-.control-btn,
-.floor-btn,
-.menu-item {
-  min-height: 44px; /* Минимальный размер для touch */
-}
-
-/* Оптимизация производительности */
-@media (max-width: 768px) {
-  .glassmorphism {
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-  }
-  
-  .map-content {
-    transform-origin: 0 0;
-  }
-}
-
-/* Отключение анимаций при уменьшенном движении */
-@media (prefers-reduced-motion: reduce) {
-  .nav-btn,
-  .control-btn,
-  .floor-btn,
-  .audience-rect,
-  .modal-container,
-  .side-panel {
-    transition: none;
-  }
-  
-  .pulse {
-    animation: none;
-  }
-}
-
 </style>
