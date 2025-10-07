@@ -4,9 +4,9 @@
     <nav class="mobile-nav" :class="{ 'scrolled': isScrolled }">
       <div class="nav-header">
         <button class="burger-menu" @click="toggleMobileMenu" :class="{ active: showMobileMenu }">
-          <span></span>
-          <span></span>
-          <span></span>
+          <div class="burger-line"></div>
+          <div class="burger-line"></div>
+          <div class="burger-line"></div>
         </button>
         
         <div class="logo" @click="goToUniversityMap">
@@ -110,6 +110,7 @@
                       @click="selectCorpus(corpus)"
                       class="location-chip"
                     >
+                      <i class="fas fa-building"></i>
                       {{ corpus }}
                     </button>
                   </div>
@@ -124,33 +125,11 @@
                       @click="selectFloor(floor)"
                       class="location-chip"
                     >
+                      <i class="fas fa-layer-group"></i>
                       {{ floor }}
                     </button>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <!-- Действия -->
-            <div class="menu-section">
-              <h3 class="section-title">Действия</h3>
-              <div class="action-grid">
-                <button @click="resetView" class="action-btn">
-                  <i class="fas fa-crosshairs"></i>
-                  <span>Центрировать</span>
-                </button>
-                <button @click="zoomIn" class="action-btn">
-                  <i class="fas fa-search-plus"></i>
-                  <span>Приблизить</span>
-                </button>
-                <button @click="zoomOut" class="action-btn">
-                  <i class="fas fa-search-minus"></i>
-                  <span>Отдалить</span>
-                </button>
-                <button @click="shareLocation" class="action-btn">
-                  <i class="fas fa-share-alt"></i>
-                  <span>Поделиться</span>
-                </button>
               </div>
             </div>
           </div>
@@ -221,10 +200,11 @@
               :class="['audience-rect', { 
                 'highlighted': audience.highlighted, 
                 'pulse': audience.highlighted,
-                'favorite': isFavorite(audience)
+                'favorite': isFavorite(audience),
+                'search-result': isSearchResult(audience)
               }]"
               :fill="getAudienceColor(audience.audience_type, 0.1)"
-              :stroke="getAudienceColor(audience.audience_type)"
+              :stroke="getAudienceStrokeColor(audience)"
               stroke-width="2"
               @click="openModal(audience)"
               rx="2"
@@ -237,7 +217,7 @@
               :y="audience.y + audience.height/2 + 2" 
               text-anchor="middle"
               dominant-baseline="middle"
-              :fill="getAudienceColor(audience.audience_type)"
+              :fill="getAudienceStrokeColor(audience)"
               font-weight="700"
               font-size="12"
               class="audience-label"
@@ -284,8 +264,11 @@
         </div>
       </div>
 
-      <!-- Переключатель корпусов (правый верхний угол) -->
-      <div class="corpus-selector">
+      <div class="corpus-selector-enhanced">
+        <div class="corpus-header">
+          <i class="fas fa-building"></i>
+          <span>Корпус</span>
+        </div>
         <div class="corpus-buttons">
           <button 
             v-for="corpus in corpuses" 
@@ -294,13 +277,13 @@
             @click="selectCorpus(corpus)"
             class="corpus-btn"
           >
-            {{ corpus }}
+            <span class="corpus-number">{{ corpus }}</span>
           </button>
         </div>
       </div>
 
-      <!-- Переключатель этажей (внизу) -->
-      <div class="floor-selector">
+      <!-- Улучшенный переключатель этажей -->
+      <div class="floor-selector-horizontal">
         <div class="floor-buttons">
           <button 
             v-for="floor in floors" 
@@ -309,12 +292,28 @@
             @click="selectFloor(floor)"
             class="floor-btn"
           >
-            {{ floor }}
+            <div class="floor-icon">
+              <i class="fas" :class="getFloorIcon(floor)"></i>
+            </div>
           </button>
         </div>
       </div>
+
+      <!-- Кнопки действий на карте -->
+      <div class="map-actions-top-right">
+        <button class="map-action-btn" @click="zoomInCenter" title="Приблизить">
+          <i class="fas fa-search-plus"></i>
+        </button>
+        <button class="map-action-btn" @click="zoomOutCenter" title="Отдалить">
+          <i class="fas fa-search-minus"></i>
+        </button>
+        <button class="map-action-btn" @click="resetView" title="Центрировать">
+          <i class="fas fa-crosshairs"></i>
+        </button>
+      </div>
     </div>
 
+    <!-- Нижние панели -->
     <transition name="slide-up">
       <div class="bottom-panel" v-if="activePanel" @click.stop>
         <div class="panel-handle" @touchstart="startPanelDrag" @mousedown="startPanelDrag">
@@ -361,21 +360,6 @@
                   />
                   <button v-if="getSearchValue(activeSearchTab)" @click="clearSearch(activeSearchTab)" class="clear-btn">
                     <i class="fas fa-times"></i>
-                  </button>
-                </div>
-              </div>
-
-              <!-- Быстрый поиск -->
-              <div class="quick-search" v-if="!getSearchValue(activeSearchTab)">
-                <h4>Популярные запросы</h4>
-                <div class="quick-search-chips">
-                  <button 
-                    v-for="item in getQuickSearchItems(activeSearchTab)" 
-                    :key="item"
-                    @click="applyQuickSearch(activeSearchTab, item)"
-                    class="quick-search-chip"
-                  >
-                    {{ item }}
                   </button>
                 </div>
               </div>
@@ -698,6 +682,7 @@ export default {
     const fullscreenImage = ref('');
     const searchHistory = ref([]);
     const highlightedAudiences = ref(new Set());
+    const searchResultAudiences = ref(new Set());
     const buffetMenu = ref([]);
     const selectedCategory = ref('все');
     
@@ -714,7 +699,7 @@ export default {
     const favoriteMode = ref(false);
     const hasNotifications = ref(false);
     
-     // Поиск и фильтры
+    // Поиск и фильтры
     const audienceSearch = ref('');
     const groupSearch = ref('');
     const teacherSearch = ref('');
@@ -725,7 +710,7 @@ export default {
     const showOnlyAvailable = ref(false);
     const showEquipment = ref(false);
     
-    // 2D карта состояния - НАСТРОЙКИ МАСШТАБИРОВАНИЯ
+    // 2D карта состояния
     const mapContent = ref(null);
     const svgElement = ref(null);
     const scale = ref(1);
@@ -733,16 +718,29 @@ export default {
     const svgWidth = ref(2000);
     const svgHeight = ref(1440);
 
-     // НАСТРОЙКИ МАСШТАБИРОВАНИЯ
+    // Настройки масштабирования
     const zoomConfig = ref({
-      min: 0.2,     // Минимальное приближение (20%)
-      max: 1.0,     // Максимальное приближение (300%)
-      initial: 0.22, // Начальное приближение (50%)
-      step: 0.2     // Шаг изменения масштаба
+      min: 0.2,
+      max: 3.0,
+      initial: 0.22,
+      step: 0.2
     });
     
+    // Жесты для масштабирования
+    const touchStart = ref({ 
+      x: 0, 
+      y: 0,
+      distance: 0,
+      scale: 1,
+      positionX: 0,
+      positionY: 0
+    });
+    const isDragging = ref(false);
+    const isPinching = ref(false);
+    const lastTouch = ref({ x: 0, y: 0 });
+    
     // 3D View State
-    const viewMode = ref('2d'); // '2d' or '3d'
+    const viewMode = ref('2d');
     const threeDScene = ref(null);
     const hoveredAudience3D = ref(null);
     const isLoadingFloor = ref(false);
@@ -761,11 +759,6 @@ export default {
     let directionalLight = null;
     let ambientLight = null;
     let animationFrameId = null;
-    
-    // Touch gestures
-    const touchStart = ref({ x: 0, y: 0 });
-    const isDragging = ref(false);
-    const lastTouch = ref({ x: 0, y: 0 });
     
     // Таймеры для debounce
     let searchAudienceTimeout = null;
@@ -805,96 +798,71 @@ export default {
     ];
 
     // МЕТОДЫ ДЛЯ ЦЕНТРИРОВАНИЯ КАРТЫ
-
-    // Центрирование карты в контейнере
     const centerMap = () => {
       if (!mapContent.value) return;
       
       const container = mapContent.value.parentElement;
       if (!container) return;
       
-      const containerWidth = container.clientWidth;
-      const containerHeight = container.clientHeight;
-      
-      // Вычисляем центр контейнера с учетом возможного смещения
-      // Для мобильных устройств центр может быть смещен из-за панелей
-      const centerX = containerWidth / 2;
-      const centerY = containerHeight / 2;
-      
-      // Вычисляем позицию для центрирования карты
-      // Учитываем масштаб и размеры карты
       position.value.x = -3550;
       position.value.y = -1340;
       
       updateMapStatus();
     };
 
-    // Центрирование по конкретной точке
     const centerToPoint = (pointX, pointY) => {
       if (!mapContent.value) return;
       
       const container = mapContent.value.parentElement;
       if (!container) return;
       
-      const containerWidth = container.clientWidth;
-      const containerHeight = container.clientHeight;
-      
-      // Вычисляем центр контейнера с учетом смещения
-      const centerX = containerWidth / 2;
-      const centerY = containerHeight / 2;
-      
-      // Центрируем указанную точку с учетом масштаба
       position.value.x = -3826;
       position.value.y = -1383;
       
       updateMapStatus();
     };
 
-    // Настройка параметров масштабирования
     const setZoomConfig = (config) => {
       if (config.min !== undefined) zoomConfig.value.min = Math.max(0.1, config.min);
       if (config.max !== undefined) zoomConfig.value.max = Math.min(10, config.max);
       if (config.initial !== undefined) zoomConfig.value.initial = Math.max(zoomConfig.value.min, Math.min(zoomConfig.value.max, config.initial));
       if (config.step !== undefined) zoomConfig.value.step = Math.max(0.05, config.step);
       
-      // Применяем начальный масштаб если он изменился
       if (config.initial !== undefined) {
         scale.value = zoomConfig.value.initial;
-        centerMap(); // Перецентрируем при изменении масштаба
+        centerMap();
       }
     };
 
-    // Приближение
-    const zoomIn = () => {
+    const zoomInCenter = () => {
       const newScale = scale.value * (1 + zoomConfig.value.step);
-      scale.value = Math.min(newScale, zoomConfig.value.max);
-      updateMapStatus();
+      if (newScale <= zoomConfig.value.max) {
+        scale.value = newScale;
+        updateMapStatus();
+      }
     };
 
-    // Отдаление
-    const zoomOut = () => {
+    const zoomOutCenter = () => {
       const newScale = scale.value / (1 + zoomConfig.value.step);
-      scale.value = Math.max(newScale, zoomConfig.value.min);
-      updateMapStatus();
+      if (newScale >= zoomConfig.value.min) {
+        scale.value = newScale;
+        updateMapStatus();
+      }
     };
 
-    // Сброс к начальному масштабу и центрирование
     const resetView = () => {
       scale.value = zoomConfig.value.initial;
       centerMap();
       updateMapStatus();
     };
 
-    // Плавное приближение к точке
     const zoomToPoint = (pointX, pointY, targetScale = null) => {
       const targetZoom = targetScale || zoomConfig.value.initial;
       
-      // Анимация плавного приближения
       const startScale = scale.value;
       const startX = position.value.x;
       const startY = position.value.y;
       
-      // Вычисляем новую позицию для центрирования точки
       const container = mapContent.value?.parentElement;
       if (!container) return;
       
@@ -907,7 +875,6 @@ export default {
       const targetX = centerX - (pointX * targetZoom);
       const targetY = centerY - (pointY * targetZoom);
       
-      // Анимация
       const duration = 300;
       const startTime = performance.now();
       
@@ -915,7 +882,6 @@ export default {
         const elapsed = currentTime - startTime;
         const progress = Math.min(elapsed / duration, 1);
         
-        // easing function
         const easeProgress = 1 - Math.pow(1 - progress, 3);
         
         scale.value = startScale + (targetZoom - startScale) * easeProgress;
@@ -931,80 +897,126 @@ export default {
       updateMapStatus();
     };
 
-    // Установка точного значения масштаба
     const setZoom = (newScale) => {
       scale.value = Math.max(zoomConfig.value.min, Math.min(zoomConfig.value.max, newScale));
-      centerMap(); // Перецентрируем при изменении масштаба
+      centerMap();
       updateMapStatus();
     };
 
-    // Получение текущих настроек масштабирования
     const getZoomConfig = () => {
       return { ...zoomConfig.value };
     };
 
-    // Обновление индикатора статуса карты
     const updateMapStatus = () => {
-      // Можно добавить дополнительную логику обновления UI
       console.log(`Масштаб: ${Math.round(scale.value * 100)}%`);
     };
 
-    // Обработчики жестов для масштабирования
+    // ОБРАБОТЧИКИ ЖЕСТОВ ДЛЯ МАСШТАБИРОВАНИЯ
     const onTouchStart = (event) => {
-      const touch = event.touches[0];
-      touchStart.value = { x: touch.clientX, y: touch.clientY };
-      lastTouch.value = { x: touch.clientX, y: touch.clientY };
-      isDragging.value = true;
-    };
-
-    const onTouchMove = (event) => {
-      if (!isDragging.value) return;
-      
-      const touch = event.touches[0];
-      const deltaX = touch.clientX - lastTouch.value.x;
-      const deltaY = touch.clientY - lastTouch.value.y;
-      
-      position.value.x += deltaX;
-      position.value.y += deltaY;
-      
-      lastTouch.value = { x: touch.clientX, y: touch.clientY };
-      event.preventDefault();
-    };
-
-    const onTouchEnd = () => {
-      isDragging.value = false;
-    };
-
-    // Обработчик жеста pinch-to-zoom
-    const onPinchZoom = (event) => {
-      if (event.touches.length !== 2) return;
-      
-      const touch1 = event.touches[0];
-      const touch2 = event.touches[1];
-      
-      // Вычисляем расстояние между пальцами
-      const currentDistance = Math.hypot(
-        touch1.clientX - touch2.clientX,
-        touch1.clientY - touch2.clientY
-      );
-      
-      if (event.type === 'touchstart') {
-        // Сохраняем начальное расстояние для вычисления дельты
-        touchStart.value.pinchDistance = currentDistance;
-        touchStart.value.pinchScale = scale.value;
-      } else if (event.type === 'touchmove') {
-        const startDistance = touchStart.value.pinchDistance;
-        if (!startDistance) return;
+      if (event.touches.length === 1) {
+        // Одиночное касание - перемещение
+        const touch = event.touches[0];
+        touchStart.value = { 
+          x: touch.clientX, 
+          y: touch.clientY,
+          distance: 0,
+          scale: scale.value,
+          positionX: position.value.x,
+          positionY: position.value.y
+        };
+        lastTouch.value = { x: touch.clientX, y: touch.clientY };
+        isDragging.value = true;
+        isPinching.value = false;
+      } else if (event.touches.length === 2) {
+        // Два пальца - масштабирование
+        isPinching.value = true;
+        isDragging.value = false;
         
-        const scaleFactor = currentDistance / startDistance;
-        const newScale = touchStart.value.pinchScale * scaleFactor;
+        const touch1 = event.touches[0];
+        const touch2 = event.touches[1];
         
-        // Применяем ограничения масштабирования
-        scale.value = Math.max(zoomConfig.value.min, Math.min(zoomConfig.value.max, newScale));
-        updateMapStatus();
+        const distance = Math.hypot(
+          touch1.clientX - touch2.clientX,
+          touch1.clientY - touch2.clientY
+        );
+        
+        const midX = (touch1.clientX + touch2.clientX) / 2;
+        const midY = (touch1.clientY + touch2.clientY) / 2;
+        
+        // Вычисляем точку в координатах карты
+        const rect = mapContent.value?.getBoundingClientRect();
+        if (rect) {
+          const pointX = (midX - rect.left - position.value.x) / scale.value;
+          const pointY = (midY - rect.top - position.value.y) / scale.value;
+          
+          touchStart.value = {
+            x: midX,
+            y: midY,
+            distance: distance,
+            scale: scale.value,
+            positionX: position.value.x,
+            positionY: position.value.y,
+            pointX: pointX,
+            pointY: pointY
+          };
+        }
         
         event.preventDefault();
       }
+    };
+
+    const onTouchMove = (event) => {
+      if (isPinching.value && event.touches.length === 2) {
+        // Обработка жеста pinch-to-zoom
+        const touch1 = event.touches[0];
+        const touch2 = event.touches[1];
+        
+        const currentDistance = Math.hypot(
+          touch1.clientX - touch2.clientX,
+          touch1.clientY - touch2.clientY
+        );
+        
+        if (touchStart.value.distance > 0 && touchStart.value.pointX !== undefined) {
+          const scaleFactor = currentDistance / touchStart.value.distance;
+          const newScale = Math.max(zoomConfig.value.min, Math.min(zoomConfig.value.max, touchStart.value.scale * scaleFactor));
+          
+          // Вычисляем смещение для сохранения точки под пальцами
+          const rect = mapContent.value?.getBoundingClientRect();
+          if (rect) {
+            const midX = (touch1.clientX + touch2.clientX) / 2;
+            const midY = (touch1.clientY + touch2.clientY) / 2;
+            
+            const deltaScale = newScale - touchStart.value.scale;
+            const targetX = touchStart.value.positionX - (midX - touchStart.value.x) * deltaScale / newScale;
+            const targetY = touchStart.value.positionY - (midY - touchStart.value.y) * deltaScale / newScale;
+            
+            scale.value = newScale;
+            position.value.x = targetX;
+            position.value.y = targetY;
+          }
+          
+          updateMapStatus();
+        }
+        
+        event.preventDefault();
+      } else if (isDragging.value && event.touches.length === 1) {
+        // Обработка перемещения с увеличенной скоростью
+        const touch = event.touches[0];
+        const deltaX = (touch.clientX - lastTouch.value.x) * 1.5; // Увеличиваем скорость в 1.5 раза
+        const deltaY = (touch.clientY - lastTouch.value.y) * 1.5;
+        
+        position.value.x += deltaX;
+        position.value.y += deltaY;
+        
+        lastTouch.value = { x: touch.clientX, y: touch.clientY };
+        event.preventDefault();
+      }
+    };
+
+    const onTouchEnd = (event) => {
+      isDragging.value = false;
+      isPinching.value = false;
+      touchStart.value.distance = 0;
     };
 
     // Двойной тап для приближения
@@ -1018,10 +1030,8 @@ export default {
       const pointY = (event.clientY - rect.top - position.value.y) / scale.value;
       
       if (scale.value > zoomConfig.value.initial) {
-        // Если уже приближены - отдаляем и центрируем
         resetView();
       } else {
-        // Приближаем в 2 раза к точке тапа
         zoomToPoint(pointX, pointY, zoomConfig.value.initial * 2);
       }
     };
@@ -1029,12 +1039,10 @@ export default {
     // Обработчик изменения размера окна
     const onWindowResize = () => {
       if (viewMode.value === '2d') {
-        // Перецентрируем карту при изменении размера окна
         nextTick(() => {
           centerMap();
         });
       } else if (viewMode.value === '3d') {
-        // Обработка для 3D режима
         if (camera && renderer && threeDScene.value) {
           camera.aspect = threeDScene.value.clientWidth / threeDScene.value.clientHeight;
           camera.updateProjectionMatrix();
@@ -1043,7 +1051,17 @@ export default {
       }
     };
 
-    //--------------------------------------------------------------------------------------------------------------------------------------------//
+    // Новые методы для улучшенного интерфейса
+    const getFloorIcon = (floor) => {
+      const icons = {
+        '1': 'fa-1',
+        '2': 'fa-2', 
+        '3': 'fa-3',
+        '4': 'fa-4'
+      };
+      return icons[floor] || 'fa-layer-group';
+    };
+
     // Computed properties
     const viewModeIcon = computed(() => {
       return viewMode.value === '2d' ? 'fa-cube' : 'fa-map';
@@ -1186,7 +1204,6 @@ export default {
       } else {
         viewMode.value = '2d';
         cleanup3D();
-        // После переключения в 2D режим центрируем карту
         nextTick(() => {
           centerMap();
         });
@@ -1294,6 +1311,7 @@ export default {
           break;
       }
       highlightedAudiences.value.clear();
+      searchResultAudiences.value.clear();
     };
 
     const getQuickSearchItems = (tab) => {
@@ -1338,16 +1356,9 @@ export default {
     const handleSearchResultClick = (result) => {
       switch (result.type) {
         case 'audience':
-          openModal(result.data);
-          // Центрируем на выбранной аудитории с учетом ее центра
-          if (viewMode.value === '2d') {
-            nextTick(() => {
-              // Получаем центр аудитории
-              const audienceCenterX = result.data.x + result.data.width / 2;
-              const audienceCenterY = result.data.y + result.data.height / 2;
-              centerToPoint(audienceCenterX, audienceCenterY);
-            });
-          }
+          centerToAudience(result.data);
+          // Закрываем панель поиска после выбора результата
+          closePanel();
           break;
         case 'group':
           groupSearch.value = result.data.name_group;
@@ -1358,7 +1369,6 @@ export default {
           searchTeachers();
           break;
       }
-      closePanel();
     };
 
     const getHistoryIcon = (type) => {
@@ -1481,6 +1491,17 @@ export default {
       return colors[type] || colors.study;
     };
 
+    const getAudienceStrokeColor = (audience) => {
+      if (isSearchResult(audience)) {
+        return '#10b981'; // Яркий зеленый для найденных аудиторий
+      }
+      return getAudienceColor(audience.audience_type);
+    };
+
+    const isSearchResult = (audience) => {
+      return searchResultAudiences.value.has(audience.id);
+    };
+
     const fetchAudiences = async () => {
       try {
         const response = await axios.get('/api/audiences');
@@ -1525,18 +1546,64 @@ export default {
         return true;
       }
       
-      return highlightedAudiences.value.has(audience.id);
+      return highlightedAudiences.value.has(audience.id) || searchResultAudiences.value.has(audience.id);
     };
 
     const searchAudiences = () => {
       if (audienceSearch.value.trim().length >= 3) {
         addToSearchHistory(audienceSearch.value, 'Аудитория');
+        
+        // Очищаем предыдущие результаты
+        searchResultAudiences.value.clear();
+        
+        // Находим все аудитории по поиску
+        const foundAudiences = audiences.value.filter(aud => 
+          aud.num_audiences.toLowerCase().includes(audienceSearch.value.toLowerCase())
+        );
+        
+        if (foundAudiences.length > 0) {
+          // Добавляем найденные аудитории в результаты
+          foundAudiences.forEach(aud => {
+            searchResultAudiences.value.add(aud.id);
+          });
+          
+          // Если есть результаты на текущем этаже - центрируем на первом
+          const currentFloorResults = foundAudiences.filter(aud => 
+            aud.corpus === selectedCorpus.value && aud.floor === selectedFloor.value
+          );
+          
+          if (currentFloorResults.length > 0) {
+            centerToAudience(currentFloorResults[0]);
+          } else {
+            // Если на текущем этаже нет результатов, переключаемся на этаж первого найденного
+            const firstResult = foundAudiences[0];
+            selectedCorpus.value = firstResult.corpus;
+            selectedFloor.value = firstResult.floor;
+            
+            // Центрируем после смены этажа
+            nextTick(() => {
+              centerToAudience(firstResult);
+            });
+          }
+          
+          // Очищаем поисковую строку после нахождения результатов
+          audienceSearch.value = '';
+        }
+      } else {
+        searchResultAudiences.value.clear();
       }
+    };
+
+    const centerToAudience = (audience) => {
+      const audienceCenterX = audience.x + audience.width / 2;
+      const audienceCenterY = audience.y + audience.height / 2;
+      zoomToPoint(audienceCenterX, audienceCenterY, zoomConfig.value.initial * 1.5);
     };
 
     const searchGroups = async () => {
       if (groupSearch.value.trim().length < 2) {
         highlightedAudiences.value.clear();
+        searchResultAudiences.value.clear();
         return;
       }
 
@@ -1545,23 +1612,45 @@ export default {
         const groupSchedule = response.data;
         
         highlightedAudiences.value.clear();
+        searchResultAudiences.value.clear();
         
         groupSchedule.forEach(item => {
           if (item.audience_id) {
             highlightedAudiences.value.add(item.audience_id);
+            searchResultAudiences.value.add(item.audience_id);
           }
         });
         
+        // Если есть результаты, переключаемся на первый этаж с результатами
+        if (groupSchedule.length > 0) {
+          const firstResult = groupSchedule[0];
+          if (firstResult.audience_id) {
+            const audience = audiences.value.find(a => a.id === firstResult.audience_id);
+            if (audience) {
+              selectedCorpus.value = audience.corpus;
+              selectedFloor.value = audience.floor;
+              
+              nextTick(() => {
+                centerToAudience(audience);
+              });
+            }
+          }
+        }
+        
         addToSearchHistory(groupSearch.value, 'Группа');
+        // Очищаем поисковую строку после нахождения результатов
+        groupSearch.value = '';
       } catch (error) {
         console.error('Ошибка поиска по группам:', error);
         highlightedAudiences.value.clear();
+        searchResultAudiences.value.clear();
       }
     };
 
     const searchTeachers = async () => {
       if (teacherSearch.value.trim().length < 3) {
         highlightedAudiences.value.clear();
+        searchResultAudiences.value.clear();
         return;
       }
 
@@ -1570,17 +1659,38 @@ export default {
         const teacherSchedule = response.data;
         
         highlightedAudiences.value.clear();
+        searchResultAudiences.value.clear();
         
         teacherSchedule.forEach(item => {
           if (item.audience_id) {
             highlightedAudiences.value.add(item.audience_id);
+            searchResultAudiences.value.add(item.audience_id);
           }
         });
         
+        // Если есть результаты, переключаемся на первый этаж с результатами
+        if (teacherSchedule.length > 0) {
+          const firstResult = teacherSchedule[0];
+          if (firstResult.audience_id) {
+            const audience = audiences.value.find(a => a.id === firstResult.audience_id);
+            if (audience) {
+              selectedCorpus.value = audience.corpus;
+              selectedFloor.value = audience.floor;
+              
+              nextTick(() => {
+                centerToAudience(audience);
+              });
+            }
+          }
+        }
+        
         addToSearchHistory(teacherSearch.value, 'Преподаватель');
+        // Очищаем поисковую строку после нахождения результатов
+        teacherSearch.value = '';
       } catch (error) {
         console.error('Ошибка поиска по преподавателям:', error);
         highlightedAudiences.value.clear();
+        searchResultAudiences.value.clear();
       }
     };
 
@@ -1689,7 +1799,6 @@ export default {
     };
 
     const toggleUserMenu = () => {
-      // В мобильной версии просто открываем меню профиля
       goToProfile();
     };
 
@@ -1698,7 +1807,6 @@ export default {
     };
 
     const isFavorite = (audience) => {
-      // Заглушка для функционала избранного
       return false;
     };
 
@@ -1707,7 +1815,6 @@ export default {
     };
 
     const shareAudience = () => {
-      // Заглушка для функционала поделиться
       if (navigator.share) {
         navigator.share({
           title: `Аудитория ${currentAudience.value.num_audiences}`,
@@ -1718,12 +1825,10 @@ export default {
     };
 
     const navigateToAudience = () => {
-      // Заглушка для навигации
       alert('Функция навигации будет реализована в будущем');
     };
 
     const shareLocation = () => {
-      // Заглушка для поделиться местоположением
       if (navigator.share) {
         navigator.share({
           title: 'Мое местоположение в БГИТУ',
@@ -1739,7 +1844,6 @@ export default {
       if (viewMode.value === '3d') {
         load3DFloor();
       } else {
-        // При смене корпуса центрируем карту
         nextTick(() => {
           resetView();
         });
@@ -1751,7 +1855,6 @@ export default {
       if (viewMode.value === '3d') {
         load3DFloor();
       } else {
-        // При смене этажа центрируем карту
         nextTick(() => {
           resetView();
         });
@@ -2202,17 +2305,14 @@ export default {
     // Watchers
     watch([selectedCorpus, selectedFloor], async () => {
       if (viewMode.value === '2d') {
-        // При смене корпуса/этажа центрируем карту
         nextTick(() => {
           resetView();
         });
       }
     });
 
-    // Отслеживаем изменение активной панели для пересчета позиции
     watch(activePanel, () => {
       if (viewMode.value === '2d') {
-        // Даем время на анимацию открытия/закрытия панели
         setTimeout(() => {
           centerMap();
         }, 300);
@@ -2221,7 +2321,6 @@ export default {
 
     watch(showMobileMenu, () => {
       if (viewMode.value === '2d') {
-        // Даем время на анимацию меню
         setTimeout(() => {
           centerMap();
         }, 300);
@@ -2292,8 +2391,8 @@ export default {
 
       // МЕТОДЫ МАСШТАБИРОВАНИЯ И ЦЕНТРИРОВАНИЯ
       setZoomConfig,
-      zoomIn,
-      zoomOut,
+      zoomInCenter,
+      zoomOutCenter,
       resetView,
       zoomToPoint,
       setZoom,
@@ -2301,11 +2400,19 @@ export default {
       centerMap,
       centerToPoint,
       
-      // Методы
-      openModal,
-      closeModal,
-      openFullscreen,
-      closeFullscreen,
+      // Обработчики жестов
+      onTouchStart,
+      onTouchMove,
+      onTouchEnd,
+      onDoubleTap,
+      
+      // Новые методы
+      getFloorIcon,
+      getAudienceStrokeColor,
+      isSearchResult,
+      centerToAudience,
+
+      // Остальные методы
       toggleViewMode,
       toggleMobileMenu,
       closeMobileMenu,
@@ -2322,14 +2429,9 @@ export default {
       goToUniversityMap,
       isFavorite,
       toggleFavorite,
-      onPinchZoom,
-      onDoubleTap,
       shareAudience,
       navigateToAudience,
       shareLocation,
-      onTouchStart,
-      onTouchMove,
-      onTouchEnd,
       getPanelIcon,
       getPanelTitle,
       getSearchTabIcon,
@@ -2355,7 +2457,11 @@ export default {
       getAudienceColor,
       getCategoryName,
       formatPrice,
-      startPanelDrag
+      startPanelDrag,
+      openModal,
+      closeModal,
+      openFullscreen,
+      closeFullscreen
     };
   }
 };
@@ -2432,12 +2538,23 @@ export default {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  width: 24px;
-  height: 18px;
+  width: 28px;
+  height: 28px;
   background: none;
   border: none;
   padding: 0;
   transition: transform 0.3s ease;
+  position: relative;
+}
+
+.burger-line {
+  display: block;
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(135deg, #4361ee, #3a0ca3);
+  border-radius: 2px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: center;
 }
 
 .burger-menu span {
@@ -2450,16 +2567,23 @@ export default {
   transform-origin: center;
 }
 
-.burger-menu.active span:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
+.burger-menu.active .burger-line:nth-child(1) {
+  transform: rotate(45deg) translate(8px, 8px);
+  background: #4361ee;
 }
 
-.burger-menu.active span:nth-child(2) {
+.burger-menu.active .burger-line:nth-child(2) {
   opacity: 0;
+  transform: scale(0);
 }
 
-.burger-menu.active span:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
+.burger-menu.active .burger-line:nth-child(3) {
+  transform: rotate(-45deg) translate(8px, -8px);
+  background: #4361ee;
+}
+
+.burger-menu:active {
+  transform: scale(0.9);
 }
 
 .logo {
@@ -2976,6 +3100,12 @@ export default {
   stroke-width: 3;
 }
 
+.audience-rect.search-result {
+  stroke: #10b981;
+  stroke-width: 3;
+  animation: pulse-green 2s infinite;
+}
+
 .audience-label {
   pointer-events: all;
   cursor: pointer;
@@ -2989,86 +3119,202 @@ export default {
   100% { opacity: 0.6; }
 }
 
-.corpus-selector {
+@keyframes pulse-green {
+  0% { 
+    stroke: #10b981;
+    filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.5));
+  }
+  50% { 
+    stroke: #34d399;
+    filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.8));
+  }
+  100% { 
+    stroke: #10b981;
+    filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.5));
+  }
+}
+
+/* Улучшенный переключатель корпусов */
+.corpus-selector-enhanced {
   position: absolute;
   top: 80px;
-  right: 12px;
+  left: 12px;
   z-index: 50;
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  min-width: 80px;
+}
+
+.corpus-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: #4361ee;
+  font-weight: 600;
+  font-size: 12px;
+  justify-content: center;
+}
+
+.corpus-header i {
+  font-size: 12px;
 }
 
 .corpus-buttons {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  padding: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  gap: 6px;
 }
 
 .corpus-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  color: #4a5568;
-  font-size: 16px;
-  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  padding: 8px 10px;
+  border: 2px solid #1a202c;
+  border-radius: 12px;
+  background-color: #2d3748;
+  color:#4361ee;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  min-width: 40px;
+  font-size: 14px;
 }
 
 .corpus-btn.active {
-  background: #4361ee;
+  background: linear-gradient(135deg, #4361ee, #3a0ca3);
   color: white;
   border-color: #4361ee;
-  transform: scale(1.05);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
 }
 
-.floor-selector {
+.corpus-btn:active {
+  transform: scale(0.95);
+}
+
+.corpus-number {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Горизонтальный переключатель этажей */
+.floor-selector-horizontal {
   position: absolute;
-  bottom: 100px;
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 50;
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  min-width: 200px;
 }
 
 .floor-buttons {
   display: flex;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  padding: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  justify-content: center;
 }
 
 .floor-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  color: #4a5568;
-  font-size: 16px;
-  font-weight: 600;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 2px solid #1a202c;
+  border-radius: 12px;
+  background-color: #2d3748;
+  color:#4361ee;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  min-width: 50px;
+  justify-content: center
 }
 
 .floor-btn.active {
-  background: #4361ee;
+  background: linear-gradient(135deg, #4361ee, #3a0ca3);
   color: white;
   border-color: #4361ee;
-  transform: scale(1.05);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(67, 97, 238, 0.3);
+}
+
+.floor-btn:active {
+  transform: scale(0.95);
+}
+
+.floor-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(67, 97, 238, 0.1);
+  border-radius: 6px;
+  color: #4361ee;
+  transition: all 0.3s ease;
+  font-size: 10px;
+}
+
+.floor-btn.active .floor-icon {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.floor-number {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Кнопки действий на карте (справа сверху) */
+.map-actions-top-right {
+  position: absolute;
+  top: 80px;
+  right: 12px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.map-action-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 2px solid #1a202c;
+  background-color: #2d3748;
+  color:#4361ee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.map-action-btn:active {
+  background: linear-gradient(135deg, #4361ee, #3a0ca3);
+  border-color: #4361ee;
+  transform: scale(0.9);
+}
+
+.map-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .map-status {
@@ -3106,6 +3352,524 @@ export default {
   bottom: 100px;
   left: 20px;
   z-index: 50;
+}
+
+.location-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: white;
+  color: #4a5568;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.location-chip.active {
+  background: #4361ee;
+  color: white;
+  border-color: #4361ee;
+}
+
+/* Action grid */
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  background: #f8fafc;
+  border: none;
+  border-radius: 16px;
+  color: #4a5568;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.action-btn:active {
+  transform: scale(0.98);
+}
+
+.action-btn i {
+  font-size: 18px;
+  color: #4361ee;
+}
+
+.menu-footer {
+  padding: 20px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.menu-footer-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.menu-footer-btn:active {
+  transform: scale(0.98);
+}
+
+.menu-footer-btn.primary {
+  background: #4361ee;
+  color: white;
+}
+
+/* Плавающие кнопки */
+.floating-controls {
+  position: fixed;
+  bottom: 100px;
+  right: 20px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 12px;
+}
+
+.floating-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.main-btn {
+  background: #4361ee;
+  color: white;
+  font-size: 20px;
+  z-index: 10;
+}
+
+.main-btn.active {
+  transform: rotate(135deg);
+  background: #f94144;
+}
+
+.action-btn {
+  background: white;
+  color: #4361ee;
+  font-size: 18px;
+}
+
+.action-btn.active {
+  background: #4361ee;
+  color: white;
+}
+
+.floating-btn-enter-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.floating-btn-enter-to {
+  transform: scale(1) translateY(0);
+  opacity: 1;
+}
+
+.floating-btn-leave-active {
+  transition: all 0.2s cubic-bezier(0.4, 0, 1, 1);
+}
+
+.floating-btn-leave-to {
+  transform: scale(0) translateY(20px);
+  opacity: 0;
+}
+
+.btn-tooltip {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  margin-right: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.action-btn:hover .btn-tooltip {
+  opacity: 1;
+}
+
+/* Контейнер карты */
+.map-view-container {
+  position: fixed;
+  top: 60px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transition: all 0.3s ease;
+}
+
+.map-view-container.panel-open {
+  bottom: 300px;
+}
+
+.map-view-container.menu-open {
+  transform: translateX(85%);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.1);
+}
+
+.map-container {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+  background-color: #1a202cfa;
+  width: 700px;
+  height: 1440px;
+}
+
+.map-content {
+  width: 2000px;
+  height: 1440px;
+  background-size: cover;
+  position: relative;
+  transition: background-image 0.5s ease-in-out;
+}
+
+.audience-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Аудитории на карте */
+.audience-rect {
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+  pointer-events: all;
+}
+
+.audience-rect:hover {
+  stroke-width: 1.5;
+}
+
+.audience-rect.highlighted {
+  stroke-width: 3;
+  fill: rgba(0, 255, 8, 0.2);
+  animation: pulse 2s infinite;
+}
+
+.audience-rect.favorite {
+  stroke: #f94144;
+  stroke-width: 3;
+}
+
+.audience-rect.search-result {
+  stroke: #22fc29;
+  stroke-width: 4;
+  animation: pulse-green 1s infinite;
+}
+
+.audience-label {
+  pointer-events: all;
+  cursor: pointer;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
+@keyframes pulse-green {
+  0% { 
+    stroke: #10b981;
+    filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.5));
+  }
+  50% { 
+    stroke: #34d399;
+    filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.8));
+  }
+  100% { 
+    stroke: #10b981;
+    filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.5));
+  }
+}
+
+/* Улучшенный переключатель корпусов */
+.corpus-selector-enhanced {
+  position: absolute;
+  top: 80px;
+  left: 12px;
+  z-index: 50;
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  min-width: 80px;
+}
+
+.corpus-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: #4361ee;
+  font-weight: 600;
+  font-size: 12px;
+  justify-content: center;
+}
+
+.corpus-header i {
+  font-size: 12px;
+}
+
+.corpus-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.corpus-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 10px;
+  border: 2px solid #1a202c;
+  border-radius: 12px;
+  background-color: #2d3748;
+  color:#4361ee;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  min-width: 40px;
+  font-size: 14px;
+}
+
+.corpus-btn.active {
+  background: linear-gradient(135deg, #4361ee, #3a0ca3);
+  color: white;
+  border-color: #4361ee;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
+}
+
+.corpus-btn:active {
+  transform: scale(0.95);
+}
+
+.corpus-number {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Горизонтальный переключатель этажей */
+.floor-selector-horizontal {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  min-width: 200px;
+}
+
+.floor-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.floor-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 2px solid #1a202c;
+  border-radius: 12px;
+  background-color: #2d3748;
+  color:#4361ee;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  min-width: 50px;
+  justify-content: center
+}
+
+.floor-btn.active {
+  background: linear-gradient(135deg, #4361ee, #3a0ca3);
+  color: white;
+  border-color: #4361ee;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(67, 97, 238, 0.3);
+}
+
+.floor-btn:active {
+  transform: scale(0.95);
+}
+
+.floor-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(67, 97, 238, 0.1);
+  border-radius: 6px;
+  color: #4361ee;
+  transition: all 0.3s ease;
+  font-size: 10px;
+}
+
+.floor-btn.active .floor-icon {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.floor-number {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Кнопки действий на карте (справа сверху) */
+.map-actions-top-right {
+  position: absolute;
+  top: 80px;
+  right: 12px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.map-action-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 2px solid #1a202c;
+  background-color: #2d3748;
+  color:#4361ee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.map-action-btn:active {
+  background: linear-gradient(135deg, #4361ee, #3a0ca3);
+  border-color: #4361ee;
+  transform: scale(0.9);
+}
+
+.map-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.map-status {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  backdrop-filter: blur(10px);
+  z-index: 50;
+}
+
+.scale-indicator {
+  font-weight: 500;
+}
+
+/* 3D контейнер */
+.three-d-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.three-d-scene {
+  width: 100%;
+  height: 100%;
+}
+
+/* Текущее местоположение */
+.current-location {
+  position: absolute;
+  bottom: 100px;
+  left: 20px;
+  z-index: 50;
+}
+
+.location-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: white;
+  color: #4a5568;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.location-chip.active {
+  background: #4361ee;
+  color: white;
+  border-color: #4361ee;
+}
+
+.location-chip i {
+  font-size: 12px;
 }
 
 .location-btn {
@@ -3176,7 +3940,8 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  font-size: 14px;
+  padding: 0px 20px;
   border-bottom: 1px solid #f1f5f9;
 }
 
@@ -4111,14 +4876,91 @@ export default {
   opacity: 0;
 }
 
-@keyframes slideInRight {
+/* Анимации */
+@keyframes slideIn {
   from {
-    transform: translateX(100%);
     opacity: 0;
+    transform: translateY(20px);
   }
   to {
-    transform: translateX(0);
     opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.corpus-selector-enhanced,
+.floor-selector-horizontal,
+.map-actions-top-right {
+  animation: slideIn 0.3s ease-out;
+}
+
+@supports(padding: max(0px)) {
+  .mobile-nav {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-top: env(safe-area-inset-top);
+    height: calc(60px + env(safe-area-inset-top));
+  }
+  
+  .map-view-container {
+    top: calc(60px + env(safe-area-inset-top));
+  }
+  
+  .floor-selector-horizontal {
+    bottom: max(20px, env(safe-area-inset-bottom) + 20px);
+  }
+  
+  .floating-controls {
+    bottom: max(100px, env(safe-area-inset-bottom) + 20px);
+    right: max(20px, env(safe-area-inset-right) + 20px);
+  }
+  
+  .bottom-panel {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .modal-actions {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Улучшение touch-интерфейса */
+button {
+  min-height: 44px;
+  min-width: 44px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Оптимизация производительности */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Темная тема поддержка */
+@media (prefers-color-scheme: dark) {
+  .mobile-container {
+    background: #1a202c;
+  }
+  
+  .mobile-nav {
+    background: rgba(26, 32, 44, 0.98);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+  
+  .burger-menu span {
+    background: #e2e8f0;
+  }
+  
+  .nav-action-btn {
+    background: #2d3748;
+    color: #e2e8f0;
+  }
+  
+  .logo-text {
+    color: #e2e8f0;
   }
 }
 
@@ -4386,11 +5228,15 @@ export default {
     padding: 8px;
   }
   
-  .corpus-btn,
+  .corpus-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 12px;
+  }
+  
   .floor-btn {
-    width: 40px;
-    height: 40px;
-    font-size: 14px;
+    min-width: 45px;
+    padding: 6px 8px;
   }
   
   .gallery-grid {
@@ -4415,8 +5261,8 @@ export default {
     top: calc(60px + env(safe-area-inset-top));
   }
   
-  .floor-selector {
-    bottom: max(100px, env(safe-area-inset-bottom) + 20px);
+  .floor-selector-horizontal {
+    bottom: max(20px, env(safe-area-inset-bottom) + 20px);
   }
   
   .floating-controls {
