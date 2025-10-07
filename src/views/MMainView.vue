@@ -4,9 +4,9 @@
     <nav class="mobile-nav" :class="{ 'scrolled': isScrolled }">
       <div class="nav-header">
         <button class="burger-menu" @click="toggleMobileMenu" :class="{ active: showMobileMenu }">
-          <span></span>
-          <span></span>
-          <span></span>
+          <div class="burger-line"></div>
+          <div class="burger-line"></div>
+          <div class="burger-line"></div>
         </button>
         
         <div class="logo" @click="goToUniversityMap">
@@ -110,6 +110,7 @@
                       @click="selectCorpus(corpus)"
                       class="location-chip"
                     >
+                      <i class="fas fa-building"></i>
                       {{ corpus }}
                     </button>
                   </div>
@@ -124,33 +125,11 @@
                       @click="selectFloor(floor)"
                       class="location-chip"
                     >
+                      <i class="fas fa-layer-group"></i>
                       {{ floor }}
                     </button>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            <!-- Действия -->
-            <div class="menu-section">
-              <h3 class="section-title">Действия</h3>
-              <div class="action-grid">
-                <button @click="resetView" class="action-btn">
-                  <i class="fas fa-crosshairs"></i>
-                  <span>Центрировать</span>
-                </button>
-                <button @click="zoomIn" class="action-btn">
-                  <i class="fas fa-search-plus"></i>
-                  <span>Приблизить</span>
-                </button>
-                <button @click="zoomOut" class="action-btn">
-                  <i class="fas fa-search-minus"></i>
-                  <span>Отдалить</span>
-                </button>
-                <button @click="shareLocation" class="action-btn">
-                  <i class="fas fa-share-alt"></i>
-                  <span>Поделиться</span>
-                </button>
               </div>
             </div>
           </div>
@@ -168,7 +147,6 @@
         </div>
       </div>
     </transition>
-
 
     <!-- Плавающие кнопки управления -->
     <div class="floating-controls">
@@ -204,7 +182,8 @@
            @touchstart="onTouchStart" 
            @touchmove="onTouchMove" 
            @touchend="onTouchEnd"
-           @touchcancel="onTouchEnd">
+           @touchcancel="onTouchEnd"
+           @dblclick="onDoubleTap">
         <div class="map-content" ref="mapContent" :style="{ 
           backgroundImage: `url(${currentMapImage})`,
           transform: `scale(${scale}) translate(${position.x}px, ${position.y}px)`
@@ -221,10 +200,11 @@
               :class="['audience-rect', { 
                 'highlighted': audience.highlighted, 
                 'pulse': audience.highlighted,
-                'favorite': isFavorite(audience)
+                'favorite': isFavorite(audience),
+                'search-result': isSearchResult(audience)
               }]"
-              :fill="getAudienceColor(audience.audience_type, 0.3)"
-              :stroke="getAudienceColor(audience.audience_type)"
+              :fill="getAudienceColor(audience.audience_type, 0.1)"
+              :stroke="getAudienceStrokeColor(audience)"
               stroke-width="2"
               @click="openModal(audience)"
               rx="2"
@@ -237,7 +217,7 @@
               :y="audience.y + audience.height/2 + 2" 
               text-anchor="middle"
               dominant-baseline="middle"
-              :fill="getAudienceColor(audience.audience_type)"
+              :fill="getAudienceStrokeColor(audience)"
               font-weight="700"
               font-size="12"
               class="audience-label"
@@ -284,8 +264,11 @@
         </div>
       </div>
 
-      <!-- Переключатель корпусов (правый верхний угол) -->
-      <div class="corpus-selector">
+      <div class="corpus-selector-enhanced">
+        <div class="corpus-header">
+          <i class="fas fa-building"></i>
+          <span>Корпус</span>
+        </div>
         <div class="corpus-buttons">
           <button 
             v-for="corpus in corpuses" 
@@ -294,13 +277,13 @@
             @click="selectCorpus(corpus)"
             class="corpus-btn"
           >
-            {{ corpus }}
+            <span class="corpus-number">{{ corpus }}</span>
           </button>
         </div>
       </div>
 
-      <!-- Переключатель этажей (внизу) -->
-      <div class="floor-selector">
+      <!-- Улучшенный переключатель этажей -->
+      <div class="floor-selector-horizontal">
         <div class="floor-buttons">
           <button 
             v-for="floor in floors" 
@@ -309,12 +292,28 @@
             @click="selectFloor(floor)"
             class="floor-btn"
           >
-            {{ floor }}
+            <div class="floor-icon">
+              <i class="fas" :class="getFloorIcon(floor)"></i>
+            </div>
           </button>
         </div>
       </div>
+
+      <!-- Кнопки действий на карте -->
+      <div class="map-actions-top-right">
+        <button class="map-action-btn" @click="zoomIn" title="Приблизить">
+          <i class="fas fa-search-plus"></i>
+        </button>
+        <button class="map-action-btn" @click="zoomOut" title="Отдалить">
+          <i class="fas fa-search-minus"></i>
+        </button>
+        <button class="map-action-btn" @click="resetView" title="Центрировать">
+          <i class="fas fa-crosshairs"></i>
+        </button>
+      </div>
     </div>
 
+    <!-- Нижние панели -->
     <transition name="slide-up">
       <div class="bottom-panel" v-if="activePanel" @click.stop>
         <div class="panel-handle" @touchstart="startPanelDrag" @mousedown="startPanelDrag">
@@ -661,11 +660,20 @@
       </div>
     </transition>
 
+    <!-- Полноэкранный просмотр -->
+    <transition name="fade">
+      <div class="fullscreen-overlay" v-if="showFullscreen" @click="closeFullscreen">
+        <div class="close-btn" @click="closeFullscreen">
+          <i class="fas fa-times"></i>
+        </div>
+        <img :src="fullscreenImage" alt="Фото аудитории" class="fullscreen-image" />
+      </div>
+    </transition>
   </div>
 </template>
 
 <script>
-import { ref, computed, onMounted, nextTick, onUnmounted } from 'vue';
+import { ref, computed, onMounted, nextTick, watch, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from 'axios';
 
@@ -674,25 +682,8 @@ import * as THREE from 'three';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
-const vClickOutside = {
-  mounted(el, binding) {
-    el.clickOutsideEvent = function(event) {
-      if (!(el === event.target || el.contains(event.target))) {
-        binding.value(event);
-      }
-    };
-    document.body.addEventListener('click', el.clickOutsideEvent);
-  },
-  unmounted(el) {
-    document.body.removeEventListener('click', el.clickOutsideEvent);
-  }
-};
-
 export default {
   name: 'MobileMapView',
-  directives: {
-    'click-outside': vClickOutside
-  },
   setup() {
     const router = useRouter();
     
@@ -706,24 +697,23 @@ export default {
     const fullscreenImage = ref('');
     const searchHistory = ref([]);
     const highlightedAudiences = ref(new Set());
+    const searchResultAudiences = ref(new Set());
     const buffetMenu = ref([]);
     const selectedCategory = ref('все');
-    const favorites = ref(new Set());
     
     // UI состояния
     const showModal = ref(false);
     const showFullscreen = ref(false);
     const showMobileMenu = ref(false);
-    const showUserMenu = ref(false);
-    const showQuickActions = ref(false);
-    const showQuickNav = ref(false);
     const activePanel = ref(null);
     const activeSearchTab = ref('audience');
     const activeModalTab = ref('info');
     const user = ref(JSON.parse(localStorage.getItem('user')) || null);
     const isScrolled = ref(false);
+    const showQuickActions = ref(false);
     const favoriteMode = ref(false);
-
+    const hasNotifications = ref(false);
+    
     // Поиск и фильтры
     const audienceSearch = ref('');
     const groupSearch = ref('');
@@ -734,55 +724,79 @@ export default {
     const selectedFilters = ref([]);
     const showOnlyAvailable = ref(false);
     const showEquipment = ref(false);
-    const searchResults = ref([]);
     
-    // 2D/3D View
-    const viewMode = ref('2d');
-    const isLoadingFloor = ref(false);
-    const loadProgress = ref(0);
-    const hoveredAudience3D = ref(null);
-    
-    // 2D зум и панорамирование
-    const scale = ref(1);
-    const position = ref({ x: 0, y: 0 });
-    const isDragging = ref(false);
-    const lastTouch = ref({ x: 0, y: 0 });
-    const userLocation = ref(null);
-    
-    // SVG dimensions
-    const svgWidth = ref(2000);
-    const svgHeight = ref(1440);
-    
-    // Уведомления
-    const notifications = ref([]);
-    
-    // DOM references
-    const threeDScene = ref(null);
+    // 2D карта состояния
     const mapContent = ref(null);
     const svgElement = ref(null);
+    const scale = ref(1);
+    const position = ref({ x: 0, y: 0 });
+    const svgWidth = ref(2000);
+    const svgHeight = ref(1440);
+
+    // Настройки масштабирования
+    const zoomConfig = ref({
+      min: 0.2,
+      max: 3.0,
+      initial: 0.22,
+      step: 0.2
+    });
     
-    // Three.js переменные
+    // Жесты для масштабирования
+    const touchStart = ref({ 
+      x: 0, 
+      y: 0,
+      distance: 0,
+      scale: 1
+    });
+    const isDragging = ref(false);
+    const isPinching = ref(false);
+    const lastTouch = ref({ x: 0, y: 0 });
+    
+    // 3D View State
+    const viewMode = ref('2d');
+    const threeDScene = ref(null);
+    const hoveredAudience3D = ref(null);
+    const isLoadingFloor = ref(false);
+    const loadProgress = ref(0);
+    
+    // Three.js variables
     let scene = null;
     let camera = null;
     let renderer = null;
     let controls = null;
-    let animationFrameId = null;
+    let floorModel = null;
     let audienceObjects = new Map();
     let raycaster = null;
-
+    let mouse = new THREE.Vector2();
+    let gridHelper = null;
+    let directionalLight = null;
+    let ambientLight = null;
+    let animationFrameId = null;
+    
+    // Таймеры для debounce
+    let searchAudienceTimeout = null;
+    let searchGroupTimeout = null;
+    let searchTeacherTimeout = null;
+    
     // Константы
     const corpuses = ['1', '2'];
     const floors = ['1', '2', '3', '4'];
-    const days = ['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
-    const filters = [
-      { value: 'lecture', label: 'Лекционный', icon: 'fa-chalkboard' },
-      { value: 'lab', label: 'Лаборатория', icon: 'fa-flask' },
-      { value: 'study', label: 'Учебный', icon: 'fa-book' },
-      { value: 'computer', label: 'Компьютерный', icon: 'fa-laptop' },
-      { value: 'cafe', label: 'Буфет', icon: 'fa-coffee' },
-      { value: 'library', label: 'Библиотека', icon: 'fa-book-open' }
+    const days = [
+      'Понедельник', 'Вторник', 'Среда', 
+      'Четверг', 'Пятница', 'Суббота', 'Воскресеньe'
     ];
-    
+    const filters = [
+      { value: 'lecture', label: 'Лекционный зал' },
+      { value: 'lab', label: 'Лаборатория' },
+      { value: 'study', label: 'Учебный кабинет' },
+      { value: 'computer', label: 'Компьютерный класс' },
+      { value: 'conference', label: 'Конференц-зал' },
+      { value: 'toilet', label: 'Туалет' },
+      { value: 'cafe', label: 'Буфет' },
+      { value: 'library', label: 'Библиотека' },
+      { value: 'cabinet', label: 'Кабинет' }
+    ];
+
     const searchTabs = [
       { id: 'audience', label: 'Аудитория', icon: 'fa-door-open' },
       { id: 'group', label: 'Группа', icon: 'fa-users' },
@@ -791,10 +805,251 @@ export default {
 
     const modalTabs = [
       { id: 'info', label: 'Информация' },
-      { id: 'gallery', label: 'Фото' },
+      { id: 'gallery', label: 'Фотографии' },
       { id: 'schedule', label: 'Расписание' },
       { id: 'menu', label: 'Меню' }
     ];
+
+    // МЕТОДЫ ДЛЯ ЦЕНТРИРОВАНИЯ КАРТЫ
+    const centerMap = () => {
+      if (!mapContent.value) return;
+      
+      const container = mapContent.value.parentElement;
+      if (!container) return;
+      
+      position.value.x = -3550;
+      position.value.y = -1340;
+      
+      updateMapStatus();
+    };
+
+    const centerToPoint = (pointX, pointY) => {
+      if (!mapContent.value) return;
+      
+      const container = mapContent.value.parentElement;
+      if (!container) return;
+      
+      position.value.x = -3826;
+      position.value.y = -1383;
+      
+      updateMapStatus();
+    };
+
+    const setZoomConfig = (config) => {
+      if (config.min !== undefined) zoomConfig.value.min = Math.max(0.1, config.min);
+      if (config.max !== undefined) zoomConfig.value.max = Math.min(10, config.max);
+      if (config.initial !== undefined) zoomConfig.value.initial = Math.max(zoomConfig.value.min, Math.min(zoomConfig.value.max, config.initial));
+      if (config.step !== undefined) zoomConfig.value.step = Math.max(0.05, config.step);
+      
+      if (config.initial !== undefined) {
+        scale.value = zoomConfig.value.initial;
+        centerMap();
+      }
+    };
+
+    const zoomIn = () => {
+      const newScale = scale.value * (1 + zoomConfig.value.step);
+      scale.value = Math.min(newScale, zoomConfig.value.max);
+      updateMapStatus();
+    };
+
+    const zoomOut = () => {
+      const newScale = scale.value / (1 + zoomConfig.value.step);
+      scale.value = Math.max(newScale, zoomConfig.value.min);
+      updateMapStatus();
+    };
+
+    const resetView = () => {
+      scale.value = zoomConfig.value.initial;
+      centerMap();
+      updateMapStatus();
+    };
+
+    const zoomToPoint = (pointX, pointY, targetScale = null) => {
+      const targetZoom = targetScale || zoomConfig.value.initial;
+      
+      const startScale = scale.value;
+      const startX = position.value.x;
+      const startY = position.value.y;
+      
+      const container = mapContent.value?.parentElement;
+      if (!container) return;
+      
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+      
+      const centerX = containerWidth / 2;
+      const centerY = containerHeight / 2;
+      
+      const targetX = centerX - (pointX * targetZoom);
+      const targetY = centerY - (pointY * targetZoom);
+      
+      const duration = 300;
+      const startTime = performance.now();
+      
+      const animateZoom = (currentTime) => {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        
+        scale.value = startScale + (targetZoom - startScale) * easeProgress;
+        position.value.x = startX + (targetX - startX) * easeProgress;
+        position.value.y = startY + (targetY - startY) * easeProgress;
+        
+        if (progress < 1) {
+          requestAnimationFrame(animateZoom);
+        }
+      };
+      
+      requestAnimationFrame(animateZoom);
+      updateMapStatus();
+    };
+
+    const setZoom = (newScale) => {
+      scale.value = Math.max(zoomConfig.value.min, Math.min(zoomConfig.value.max, newScale));
+      centerMap();
+      updateMapStatus();
+    };
+
+    const getZoomConfig = () => {
+      return { ...zoomConfig.value };
+    };
+
+    const updateMapStatus = () => {
+      console.log(`Масштаб: ${Math.round(scale.value * 100)}%`);
+    };
+
+    // ОБРАБОТЧИКИ ЖЕСТОВ ДЛЯ МАСШТАБИРОВАНИЯ
+    const onTouchStart = (event) => {
+      if (event.touches.length === 1) {
+        // Одиночное касание - перемещение
+        const touch = event.touches[0];
+        touchStart.value = { 
+          x: touch.clientX, 
+          y: touch.clientY,
+          distance: 0,
+          scale: scale.value
+        };
+        lastTouch.value = { x: touch.clientX, y: touch.clientY };
+        isDragging.value = true;
+        isPinching.value = false;
+      } else if (event.touches.length === 2) {
+        // Два пальца - масштабирование
+        isPinching.value = true;
+        isDragging.value = false;
+        
+        const touch1 = event.touches[0];
+        const touch2 = event.touches[1];
+        
+        const distance = Math.hypot(
+          touch1.clientX - touch2.clientX,
+          touch1.clientY - touch2.clientY
+        );
+        
+        touchStart.value = {
+          x: (touch1.clientX + touch2.clientX) / 2,
+          y: (touch1.clientY + touch2.clientY) / 2,
+          distance: distance,
+          scale: scale.value
+        };
+        
+        event.preventDefault();
+      }
+    };
+
+    const onTouchMove = (event) => {
+      if (isPinching.value && event.touches.length === 2) {
+        // Обработка жеста pinch-to-zoom
+        const touch1 = event.touches[0];
+        const touch2 = event.touches[1];
+        
+        const currentDistance = Math.hypot(
+          touch1.clientX - touch2.clientX,
+          touch1.clientY - touch2.clientY
+        );
+        
+        if (touchStart.value.distance > 0) {
+          const scaleFactor = currentDistance / touchStart.value.distance;
+          const newScale = touchStart.value.scale * scaleFactor;
+          
+          // Применяем ограничения масштабирования
+          scale.value = Math.max(zoomConfig.value.min, Math.min(zoomConfig.value.max, newScale));
+          
+          // Центрируем масштабирование относительно середины между двумя пальцами
+          const midX = (touch1.clientX + touch2.clientX) / 2;
+          const midY = (touch1.clientY + touch2.clientY) / 2;
+          
+          const deltaScale = scale.value - touchStart.value.scale;
+          position.value.x -= (midX - touchStart.value.x) * deltaScale / scale.value;
+          position.value.y -= (midY - touchStart.value.y) * deltaScale / scale.value;
+          
+          updateMapStatus();
+        }
+        
+        event.preventDefault();
+      } else if (isDragging.value && event.touches.length === 1) {
+        // Обработка перемещения
+        const touch = event.touches[0];
+        const deltaX = touch.clientX - lastTouch.value.x;
+        const deltaY = touch.clientY - lastTouch.value.y;
+        
+        position.value.x += deltaX;
+        position.value.y += deltaY;
+        
+        lastTouch.value = { x: touch.clientX, y: touch.clientY };
+        event.preventDefault();
+      }
+    };
+
+    const onTouchEnd = (event) => {
+      isDragging.value = false;
+      isPinching.value = false;
+      touchStart.value.distance = 0;
+    };
+
+    // Двойной тап для приближения
+    const onDoubleTap = (event) => {
+      if (viewMode.value !== '2d') return;
+      
+      const rect = mapContent.value?.getBoundingClientRect();
+      if (!rect) return;
+      
+      const pointX = (event.clientX - rect.left - position.value.x) / scale.value;
+      const pointY = (event.clientY - rect.top - position.value.y) / scale.value;
+      
+      if (scale.value > zoomConfig.value.initial) {
+        resetView();
+      } else {
+        zoomToPoint(pointX, pointY, zoomConfig.value.initial * 2);
+      }
+    };
+
+    // Обработчик изменения размера окна
+    const onWindowResize = () => {
+      if (viewMode.value === '2d') {
+        nextTick(() => {
+          centerMap();
+        });
+      } else if (viewMode.value === '3d') {
+        if (camera && renderer && threeDScene.value) {
+          camera.aspect = threeDScene.value.clientWidth / threeDScene.value.clientHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(threeDScene.value.clientWidth, threeDScene.value.clientHeight);
+        }
+      }
+    };
+
+    // Новые методы для улучшенного интерфейса
+    const getFloorIcon = (floor) => {
+      const icons = {
+        '1': 'fa-1',
+        '2': 'fa-2', 
+        '3': 'fa-3',
+        '4': 'fa-4'
+      };
+      return icons[floor] || 'fa-layer-group';
+    };
 
     // Computed properties
     const viewModeIcon = computed(() => {
@@ -810,24 +1065,17 @@ export default {
     });
 
     const filteredAudiences = computed(() => {
-        let filtered = audiences.value.filter(audience => 
-            audience.corpus === selectedCorpus.value && 
-            audience.floor === selectedFloor.value &&
-            (selectedFilters.value.length === 0 || selectedFilters.value.includes(audience.audience_type))
-        );
-
-        // Применяем корректировку координат
-        filtered = adjustAudienceCoordinates(filtered);
-
-        if (favoriteMode.value) {
-            filtered = filtered.filter(audience => favorites.value.has(audience.id));
-        }
-
-        return filtered.map(audience => ({
-            ...audience,
-            highlighted: shouldHighlightAudience(audience)
+      return audiences.value
+        .filter(audience => 
+          audience.corpus === selectedCorpus.value && 
+          audience.floor === selectedFloor.value &&
+          (selectedFilters.value.length === 0 || selectedFilters.value.includes(audience.audience_type))
+        )
+        .map(audience => ({
+          ...audience,
+          highlighted: shouldHighlightAudience(audience)
         }));
-        });
+    });
 
     const showScheduleSection = computed(() => {
       if (!currentAudience.value.audience_type) return false;
@@ -835,12 +1083,19 @@ export default {
       return scheduleAllowedTypes.includes(currentAudience.value.audience_type);
     });
 
+    const filteredSchedule = computed(() => {
+      if (!currentAudience.value.id) return [];
+      return schedule.value.filter(item => 
+        item.day_week === selectedDay.value
+      );
+    });
+
     const groupedSchedule = computed(() => {
-      if (!schedule.value.length) return [];
+      if (!filteredSchedule.value.length) return [];
       
       const groupsMap = new Map();
       
-      schedule.value.forEach(item => {
+      filteredSchedule.value.forEach(item => {
         const key = `${item.time_start}-${item.time_over}-${item.lesson_id}-${item.teacher_id}`;
         
         if (groupsMap.has(key)) {
@@ -886,26 +1141,83 @@ export default {
       return categories;
     });
 
-    const hasNotifications = computed(() => {
-      return notifications.value.length > 0;
+    const searchResults = computed(() => {
+      const searchValue = getSearchValue(activeSearchTab.value);
+      if (!searchValue) return [];
+
+      switch (activeSearchTab.value) {
+        case 'audience':
+          return audiences.value
+            .filter(aud => aud.num_audiences.toLowerCase().includes(searchValue.toLowerCase()))
+            .map(aud => ({
+              id: aud.id,
+              title: `Аудитория ${aud.num_audiences}`,
+              subtitle: `${aud.corpus} корпус, ${aud.floor} этаж`,
+              type: 'audience',
+              data: aud
+            }));
+        case 'group':
+          return groups.value
+            .filter(group => group.name_group.toLowerCase().includes(searchValue.toLowerCase()))
+            .map(group => ({
+              id: group.id,
+              title: group.name_group,
+              subtitle: 'Учебная группа',
+              type: 'group',
+              data: group
+            }));
+        case 'teacher':
+          return teachers.value
+            .filter(teacher => 
+              `${teacher.surname} ${teacher.name} ${teacher.patronymic}`.toLowerCase().includes(searchValue.toLowerCase())
+            )
+            .map(teacher => ({
+              id: teacher.id,
+              title: `${teacher.surname} ${teacher.name} ${teacher.patronymic}`,
+              subtitle: teacher.post,
+              type: 'teacher',
+              data: teacher
+            }));
+        default:
+          return [];
+      }
     });
 
     // Methods
+    const toggleViewMode = async () => {
+      if (viewMode.value === '2d') {
+        viewMode.value = '3d';
+        await nextTick();
+        init3DScene();
+        load3DFloor();
+      } else {
+        viewMode.value = '2d';
+        cleanup3D();
+        nextTick(() => {
+          centerMap();
+        });
+      }
+    };
+
     const toggleMobileMenu = () => {
       showMobileMenu.value = !showMobileMenu.value;
-      if (showMobileMenu.value) {
-        showUserMenu.value = false;
-        showQuickActions.value = false;
-      }
     };
 
     const closeMobileMenu = () => {
       showMobileMenu.value = false;
     };
 
-    const toggleUserMenu = () => {
-      showUserMenu.value = !showUserMenu.value;
-      if (showUserMenu.value) showMobileMenu.value = false;
+    const togglePanel = (panel) => {
+      if (activePanel.value === panel) {
+        activePanel.value = null;
+      } else {
+        activePanel.value = panel;
+        closeMobileMenu();
+      }
+    };
+
+    const closePanel = () => {
+      activePanel.value = null;
     };
 
     const toggleQuickActions = () => {
@@ -914,30 +1226,6 @@ export default {
 
     const toggleFavoriteMode = () => {
       favoriteMode.value = !favoriteMode.value;
-      if (favoriteMode.value) {
-        showNotification('Режим избранного включен', 'info', 'fa-heart');
-      }
-    };
-
-    const togglePanel = (panel) => {
-      if (activePanel.value === panel) {
-        activePanel.value = null;
-      } else {
-        activePanel.value = panel;
-        showMobileMenu.value = false;
-        showQuickActions.value = false;
-        
-        nextTick(() => {
-          if (panel === 'search') {
-            const input = document.querySelector('.search-input');
-            if (input) input.focus();
-          }
-        });
-      }
-    };
-
-    const closePanel = () => {
-      activePanel.value = null;
     };
 
     const getPanelIcon = (panel) => {
@@ -958,19 +1246,26 @@ export default {
       return titles[panel] || 'Панель';
     };
 
-    // Навигация по меню
-    const handleMenuNavigation = (panel) => {
-      togglePanel(panel);
-      closeMobileMenu();
+    const getSearchTabIcon = (tab) => {
+      const tabConfig = searchTabs.find(t => t.id === tab);
+      return tabConfig ? tabConfig.icon : 'fa-search';
     };
 
-    // Поиск
     const getSearchValue = (tab) => {
       switch (tab) {
         case 'audience': return audienceSearch.value;
         case 'group': return groupSearch.value;
         case 'teacher': return teacherSearch.value;
         default: return '';
+      }
+    };
+
+    const getSearchPlaceholder = (tab) => {
+      switch (tab) {
+        case 'audience': return 'Номер аудитории...';
+        case 'group': return 'Название группы...';
+        case 'teacher': return 'ФИО преподавателя...';
+        default: return 'Поиск...';
       }
     };
 
@@ -992,283 +1287,105 @@ export default {
       }
     };
 
-    const getSearchPlaceholder = (tab) => {
+    const clearSearch = (tab) => {
       switch (tab) {
-        case 'audience': return 'Номер аудитории...';
-        case 'group': return 'Номер группы...';
-        case 'teacher': return 'ФИО преподавателя...';
-        default: return 'Поиск...';
+        case 'audience':
+          audienceSearch.value = '';
+          break;
+        case 'group':
+          groupSearch.value = '';
+          break;
+        case 'teacher':
+          teacherSearch.value = '';
+          break;
       }
-    };
-
-    const getSearchTabIcon = (tab) => {
-      const icons = {
-        'audience': 'fa-door-open',
-        'group': 'fa-users',
-        'teacher': 'fa-chalkboard-teacher'
-      };
-      return icons[tab] || 'fa-search';
+      highlightedAudiences.value.clear();
+      searchResultAudiences.value.clear();
     };
 
     const getQuickSearchItems = (tab) => {
       switch (tab) {
-        case 'audience': return ['101', '201', '301', 'Лекционная 1'];
-        case 'group': return ['ИСТ-101', 'ПМИ-201', 'ФИИТ-301'];
-        case 'teacher': return ['Иванов', 'Петрова', 'Сидоров'];
-        default: return [];
+        case 'audience':
+          return ['101', '201', '301', '401', '102', '202'];
+        case 'group':
+          return ['ИС-11', 'ПО-21', 'УИТ-31', 'Э-41'];
+        case 'teacher':
+          return ['Иванов', 'Петров', 'Сидоров'];
+        default:
+          return [];
       }
     };
 
-    const applyQuickSearch = (tab, value) => {
+    const applyQuickSearch = (tab, item) => {
       switch (tab) {
         case 'audience':
-          audienceSearch.value = value;
+          audienceSearch.value = item;
           searchAudiences();
           break;
         case 'group':
-          groupSearch.value = value;
+          groupSearch.value = item;
           searchGroups();
           break;
         case 'teacher':
-          teacherSearch.value = value;
+          teacherSearch.value = item;
           searchTeachers();
           break;
       }
     };
 
-    // Touch handlers для 2D карты
-    const onTouchStart = (e) => {
-      if (e.touches.length === 1) {
-        isDragging.value = true;
-        const touch = e.touches[0];
-        lastTouch.value = { x: touch.clientX, y: touch.clientY };
-      } else if (e.touches.length === 2) {
-        isDragging.value = false;
+    const getResultIcon = (result) => {
+      const icons = {
+        'audience': 'fa-door-open',
+        'group': 'fa-users',
+        'teacher': 'fa-chalkboard-teacher'
+      };
+      return icons[result.type] || 'fa-search';
+    };
+
+    const handleSearchResultClick = (result) => {
+      switch (result.type) {
+        case 'audience':
+          centerToAudience(result.data);
+          break;
+        case 'group':
+          groupSearch.value = result.data.name_group;
+          searchGroups();
+          break;
+        case 'teacher':
+          teacherSearch.value = `${result.data.surname} ${result.data.name}`;
+          searchTeachers();
+          break;
       }
+      closePanel();
     };
 
-    const onTouchMove = (e) => {
-      if (!isDragging.value || e.touches.length !== 1) return;
-      
-      const touch = e.touches[0];
-      const deltaX = touch.clientX - lastTouch.value.x;
-      const deltaY = touch.clientY - lastTouch.value.y;
-      
-      position.value.x += deltaX;
-      position.value.y += deltaY;
-      
-      lastTouch.value = { x: touch.clientX, y: touch.clientY };
-      e.preventDefault();
+    const getHistoryIcon = (type) => {
+      const icons = {
+        'Аудитория': 'fa-door-open',
+        'Группа': 'fa-users',
+        'Преподаватель': 'fa-chalkboard-teacher'
+      };
+      return icons[type] || 'fa-search';
     };
 
-    const onTouchEnd = () => {
-      isDragging.value = false;
+    const getHistoryTypeName = (type) => {
+      const names = {
+        'Аудитория': 'Аудитория',
+        'Группа': 'Группа',
+        'Преподаватель': 'Преподаватель'
+      };
+      return names[type] || type;
     };
 
-    const zoomIn = () => {
-      scale.value = Math.min(scale.value * 1.2, 3);
-      showNotification('Увеличено', 'info', 'fa-search-plus');
-    };
-
-    const zoomOut = () => {
-      scale.value = Math.max(scale.value / 1.2, 0.5);
-      showNotification('Уменьшено', 'info', 'fa-search-minus');
-    };
-
-    const resetView = () => {
-      scale.value = 1;
-      position.value = { x: 0, y: 0 };
-      showNotification('Вид сброшен', 'info', 'fa-crosshairs');
-    };
-
-    const centerOnUser = () => {
-      if (userLocation.value) {
-        showNotification('Центрирование на вашем местоположении', 'info', 'fa-location-arrow');
-      } else {
-        showNotification('Местоположение недоступно', 'warning', 'fa-exclamation-triangle');
-      }
-    };
-
-    // Избранное
-    const toggleFavorite = (audience) => {
-      if (favorites.value.has(audience.id)) {
-        favorites.value.delete(audience.id);
-        showNotification('Удалено из избранного', 'info', 'fa-heart-broken');
-      } else {
-        favorites.value.add(audience.id);
-        showNotification('Добавлено в избранное', 'success', 'fa-heart');
-      }
-    };
-
-    const isFavorite = (audience) => {
-      return favorites.value.has(audience.id);
-    };
-
-    // Уведомления
-    const showNotification = (message, type = 'info', icon = 'fa-info-circle') => {
-      const id = Date.now() + Math.random();
-      notifications.value.push({
-        id,
-        message,
-        type,
-        icon
+    const formatTime = (timestamp) => {
+      return new Date(timestamp).toLocaleTimeString('ru-RU', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
       });
-      
-      setTimeout(() => {
-        removeNotification(id);
-      }, 4000);
     };
 
-    const removeNotification = (id) => {
-      const index = notifications.value.findIndex(n => n.id === id);
-      if (index > -1) {
-        notifications.value.splice(index, 1);
-      }
-    };
-
-    // Data methods
-    const fetchAudiences = async () => {
-      try {
-        const response = await axios.get('/api/audiences');
-        audiences.value = response.data;
-      } catch (error) {
-        console.error('Ошибка загрузки аудиторий:', error);
-        showNotification('Ошибка загрузки данных', 'error', 'fa-exclamation-triangle');
-      }
-    };
-
-    const fetchSchedule = async (audienceId) => {
-      try {
-        const response = await axios.get(`/api/schedule/${audienceId}`);
-        schedule.value = response.data;
-      } catch (error) {
-        console.error('Ошибка загрузки расписания:', error);
-      }
-    };
-
-    const fetchBuffetMenu = async () => {
-      try {
-        const response = await axios.get('/api/buffet-menu');
-        buffetMenu.value = response.data;
-      } catch (error) {
-        console.error('Ошибка загрузки меню:', error);
-        buffetMenu.value = [];
-      }
-    };
-
-    const getAudienceColor = (type, opacity = 1) => {
-        const colors = {
-            lecture: `rgba(67, 97, 238, ${opacity})`,
-            lab: `rgba(247, 37, 133, ${opacity})`,
-            study: `rgba(76, 201, 240, ${opacity})`,
-            computer: `rgba(114, 9, 183, ${opacity})`,
-            conference: `rgba(248, 150, 30, ${opacity})`,
-            toilet: `rgba(67, 170, 139, ${opacity})`,
-            cafe: `rgba(249, 65, 68, ${opacity})`,
-            library: `rgba(87, 117, 144, ${opacity})`,
-            cabinet: `rgba(164, 202, 50, ${opacity})`
-        };
-        return colors[type] || colors.study;
-        };
-
-    const getAudienceTypeName = (type) => {
-        const types = {
-            'lecture': 'Лекционный зал',
-            'lab': 'Лаборатория',
-            'study': 'Учебный кабинет',
-            'computer': 'Компьютерный класс',
-            'conference': 'Конференц-зал',
-            'toilet': 'Туалет',
-            'cafe': 'Буфет',
-            'library': 'Библиотека',
-            'cabinet': 'Кабинет',
-            'other': 'Другое'
-        };
-        return types[type] || type;
-        };
-
-    const getAudienceIcon = (type) => {
-        const icons = {
-            'lecture': 'fa-chalkboard',
-            'lab': 'fa-flask',
-            'study': 'fa-book',
-            'computer': 'fa-laptop-code',
-            'conference': 'fa-users',
-            'toilet': 'fa-toilet',
-            'cafe': 'fa-coffee',
-            'library': 'fa-book-open',
-            'cabinet': 'fa-door-closed'
-        };
-        return icons[type] || 'fa-door-open';
-        };
-    
-    const getCategoryName = (category) => {
-        const categoryNames = {
-            'все': 'Все категории',
-            'выпечка': 'Выпечка',
-            'напитки': 'Напитки',
-            'салат': 'Салаты',
-            'первое блюдо': 'Первые блюда',
-            'второе блюдо': 'Вторые блюда',
-            'гарнир': 'Гарниры',
-            'десерт': 'Десерты'
-        };
-        return categoryNames[category] || category;
-        };
-
-    const shouldHighlightAudience = (audience) => {
-      if (audienceSearch.value.length >= 3 && 
-          audience.num_audiences.toLowerCase().includes(audienceSearch.value.toLowerCase())) {
-        return true;
-      }
-      return highlightedAudiences.value.has(audience.id);
-    };
-
-    const openModal = async (audience) => {
-      currentAudience.value = audience;
-      currentImages.value = [
-        audience.image1,
-        audience.image2,
-        audience.image3
-      ].filter(img => img);
-      
-      // Загружаем дополнительные данные
-      if (showScheduleSection.value) {
-        await fetchSchedule(audience.id);
-      }
-      
-      if (audience.audience_type === 'cafe') {
-        await fetchBuffetMenu();
-      }
-      
-      showModal.value = true;
-      activePanel.value = null;
-      activeModalTab.value = 'info';
-    };
-
-    const closeModal = () => {
-      showModal.value = false;
-    };
-
-    const openFullscreen = (image) => {
-      fullscreenImage.value = image;
-      showFullscreen.value = true;
-    };
-
-    const closeFullscreen = () => {
-      showFullscreen.value = false;
-    };
-
-    const selectCorpus = (corpus) => {
-      selectedCorpus.value = corpus;
-      selectedFloor.value = '1';
-      resetView();
-      showNotification(`Выбран корпус ${corpus}`, 'info', 'fa-building');
-    };
-
-    const selectFloor = (floor) => {
-      selectedFloor.value = floor;
-      showNotification(`Выбран ${floor} этаж`, 'info', 'fa-layer-group');
+    const clearHistory = () => {
+      searchHistory.value = [];
     };
 
     const toggleFilter = (filter) => {
@@ -1288,101 +1405,303 @@ export default {
 
     const applyFilters = () => {
       closePanel();
-      showNotification('Фильтры применены', 'success', 'fa-check');
     };
 
-    const clearSearch = (type) => {
-      switch (type) {
-        case 'audience':
-          audienceSearch.value = '';
-          break;
-        case 'group':
-          groupSearch.value = '';
-          break;
-        case 'teacher':
-          teacherSearch.value = '';
-          break;
+    const handleMenuNavigation = (panel) => {
+      togglePanel(panel);
+    };
+
+    const getAudienceTypeName = (type) => {
+      const types = {
+        'lecture': 'Лекционный зал',
+        'lab': 'Лаборатория',
+        'study': 'Учебный кабинет',
+        'computer': 'Компьютерный класс',
+        'conference': 'Конференц-зал',
+        'toilet': 'Туалет',
+        'cafe': 'Буфет',
+        'library': 'Библиотека',
+        'cabinet': 'Кабинет',
+        'other': 'Другое'
+      };
+      return types[type] || type;
+    };
+
+    const getAudienceIcon = (type) => {
+      const icons = {
+        'lecture': 'fa-chalkboard',
+        'lab': 'fa-flask',
+        'study': 'fa-book',
+        'computer': 'fa-laptop-code',
+        'conference': 'fa-users',
+        'toilet': 'fa-toilet',
+        'cafe': 'fa-coffee',
+        'library': 'fa-book-open',
+        'cabinet': 'fa-door-closed'
+      };
+      return icons[type] || 'fa-door-open';
+    };
+
+    const getCategoryName = (category) => {
+      const categoryNames = {
+        'все': 'Все категории',
+        'выпечка': 'Выпечка',
+        'напитки': 'Напитки',
+        'салат': 'Салаты',
+        'первое блюдо': 'Первые блюда',
+        'второе блюдо': 'Вторые блюда',
+        'гарнир': 'Гарниры',
+        'десерт': 'Десерты'
+      };
+      return categoryNames[category] || category;
+    };
+
+    const formatPrice = (price) => {
+      return new Intl.NumberFormat('ru-RU', {
+        style: 'currency',
+        currency: 'RUB',
+        minimumFractionDigits: 0
+      }).format(price);
+    };
+
+    const getAudienceColor = (type, opacity = 1) => {
+      const colors = {
+        lecture: `rgba(67, 97, 238, ${opacity})`,
+        lab: `rgba(67, 97, 238, ${opacity})`,
+        study: `rgba(67, 97, 238, ${opacity})`,
+        computer: `rgba(67, 97, 238, ${opacity})`,
+        conference: `rgba(67, 97, 238, ${opacity})`,
+        toilet: `rgba(67, 97, 238, ${opacity})`,
+        cafe: `rgba(67, 97, 238, ${opacity})`,
+        library: `rgba(67, 97, 238, ${opacity})`,
+        cabinet: `rgba(67, 97, 238, ${opacity})`
+      };
+      return colors[type] || colors.study;
+    };
+
+    const getAudienceStrokeColor = (audience) => {
+      if (isSearchResult(audience)) {
+        return '#10b981'; // Яркий зеленый для найденных аудиторий
       }
-      highlightedAudiences.value.clear();
-      searchResults.value = [];
+      return getAudienceColor(audience.audience_type);
     };
 
-    const clearHistory = () => {
-      searchHistory.value = [];
-      showNotification('История очищена', 'info', 'fa-trash');
+    const isSearchResult = (audience) => {
+      return searchResultAudiences.value.has(audience.id);
     };
 
-    // Поисковые методы
-    const searchAudiences = async () => {
-      if (audienceSearch.value.trim().length < 2) {
+    const fetchAudiences = async () => {
+      try {
+        const response = await axios.get('/api/audiences');
+        audiences.value = response.data;
+      } catch (error) {
+        console.error('Ошибка загрузки аудиторий:', error);
+      }
+    };
+
+    const fetchGroups = async () => {
+      try {
+        const response = await axios.get('/api/groups');
+        groups.value = response.data;
+      } catch (error) {
+        console.error('Ошибка загрузки групп:', error);
+        groups.value = [];
+      }
+    };
+
+    const fetchTeachers = async () => {
+      try {
+        const response = await axios.get('/api/teachers');
+        teachers.value = response.data;
+      } catch (error) {
+        console.error('Ошибка загрузки преподавателей:', error);
+        teachers.value = [];
+      }
+    };
+
+    const fetchSchedule = async (audienceId) => {
+      try {
+        const response = await axios.get(`/api/schedule/${audienceId}`);
+        schedule.value = response.data;
+      } catch (error) {
+        console.error('Ошибка загрузки расписания:', error);
+      }
+    };
+
+    const shouldHighlightAudience = (audience) => {
+      if (audienceSearch.value.length >= 3 && 
+          audience.num_audiences.toLowerCase().includes(audienceSearch.value.toLowerCase())) {
+        return true;
+      }
+      
+      return highlightedAudiences.value.has(audience.id) || searchResultAudiences.value.has(audience.id);
+    };
+
+    const searchAudiences = () => {
+      if (audienceSearch.value.trim().length >= 3) {
+        addToSearchHistory(audienceSearch.value, 'Аудитория');
+        
+        // Очищаем предыдущие результаты
+        searchResultAudiences.value.clear();
+        
+        // Находим все аудитории по поиску
+        const foundAudiences = audiences.value.filter(aud => 
+          aud.num_audiences.toLowerCase().includes(audienceSearch.value.toLowerCase())
+        );
+        
+        if (foundAudiences.length > 0) {
+          // Добавляем найденные аудитории в результаты
+          foundAudiences.forEach(aud => {
+            searchResultAudiences.value.add(aud.id);
+          });
+          
+          // Если есть результаты на текущем этаже - центрируем на первом
+          const currentFloorResults = foundAudiences.filter(aud => 
+            aud.corpus === selectedCorpus.value && aud.floor === selectedFloor.value
+          );
+          
+          if (currentFloorResults.length > 0) {
+            centerToAudience(currentFloorResults[0]);
+          } else {
+            // Если на текущем этаже нет результатов, переключаемся на этаж первого найденного
+            const firstResult = foundAudiences[0];
+            selectedCorpus.value = firstResult.corpus;
+            selectedFloor.value = firstResult.floor;
+            
+            // Центрируем после смены этажа
+            nextTick(() => {
+              centerToAudience(firstResult);
+            });
+          }
+        }
+      } else {
+        searchResultAudiences.value.clear();
+      }
+    };
+
+    const centerToAudience = (audience) => {
+      const audienceCenterX = audience.x + audience.width / 2;
+      const audienceCenterY = audience.y + audience.height / 2;
+      zoomToPoint(audienceCenterX, audienceCenterY, zoomConfig.value.initial * 1.5);
+    };
+
+    const searchGroups = async () => {
+      if (groupSearch.value.trim().length < 2) {
         highlightedAudiences.value.clear();
-        searchResults.value = [];
+        searchResultAudiences.value.clear();
         return;
       }
 
       try {
-        const results = audiences.value.filter(audience =>
-          audience.num_audiences.toLowerCase().includes(audienceSearch.value.toLowerCase())
-        );
-        
-        searchResults.value = results.map(aud => ({
-          id: aud.id,
-          title: `Аудитория ${aud.num_audiences}`,
-          subtitle: `${getAudienceTypeName(aud.audience_type)} • ${aud.corpus} корпус`,
-          type: 'audience',
-          data: aud
-        }));
+        const response = await axios.get(`/api/schedule/group/${encodeURIComponent(groupSearch.value.trim())}`);
+        const groupSchedule = response.data;
         
         highlightedAudiences.value.clear();
-        results.forEach(aud => highlightedAudiences.value.add(aud.id));
+        searchResultAudiences.value.clear();
         
-        addToSearchHistory(audienceSearch.value, 'Аудитория');
+        groupSchedule.forEach(item => {
+          if (item.audience_id) {
+            highlightedAudiences.value.add(item.audience_id);
+            searchResultAudiences.value.add(item.audience_id);
+          }
+        });
+        
+        // Если есть результаты, переключаемся на первый этаж с результатами
+        if (groupSchedule.length > 0) {
+          const firstResult = groupSchedule[0];
+          if (firstResult.audience_id) {
+            const audience = audiences.value.find(a => a.id === firstResult.audience_id);
+            if (audience) {
+              selectedCorpus.value = audience.corpus;
+              selectedFloor.value = audience.floor;
+              
+              nextTick(() => {
+                centerToAudience(audience);
+              });
+            }
+          }
+        }
+        
+        addToSearchHistory(groupSearch.value, 'Группа');
       } catch (error) {
-        console.error('Ошибка поиска аудиторий:', error);
+        console.error('Ошибка поиска по группам:', error);
+        highlightedAudiences.value.clear();
+        searchResultAudiences.value.clear();
       }
-    };
-
-    const searchGroups = async () => {
-      showNotification('Поиск по группам временно недоступен', 'info', 'fa-users');
     };
 
     const searchTeachers = async () => {
-      showNotification('Поиск по преподавателям временно недоступен', 'info', 'fa-chalkboard-teacher');
-    };
-
-    const debounceSearchAudiences = debounce(searchAudiences, 500);
-    const debounceSearchGroups = debounce(searchGroups, 500);
-    const debounceSearchTeachers = debounce(searchTeachers, 500);
-
-    const handleSearchResultClick = (result) => {
-      if (result.type === 'audience') {
-        openModal(result.data);
+      if (teacherSearch.value.trim().length < 3) {
+        highlightedAudiences.value.clear();
+        searchResultAudiences.value.clear();
+        return;
       }
-      closePanel();
+
+      try {
+        const response = await axios.get(`/api/schedule/teacher/${encodeURIComponent(teacherSearch.value.trim())}`);
+        const teacherSchedule = response.data;
+        
+        highlightedAudiences.value.clear();
+        searchResultAudiences.value.clear();
+        
+        teacherSchedule.forEach(item => {
+          if (item.audience_id) {
+            highlightedAudiences.value.add(item.audience_id);
+            searchResultAudiences.value.add(item.audience_id);
+          }
+        });
+        
+        // Если есть результаты, переключаемся на первый этаж с результатами
+        if (teacherSchedule.length > 0) {
+          const firstResult = teacherSchedule[0];
+          if (firstResult.audience_id) {
+            const audience = audiences.value.find(a => a.id === firstResult.audience_id);
+            if (audience) {
+              selectedCorpus.value = audience.corpus;
+              selectedFloor.value = audience.floor;
+              
+              nextTick(() => {
+                centerToAudience(audience);
+              });
+            }
+          }
+        }
+        
+        addToSearchHistory(teacherSearch.value, 'Преподаватель');
+      } catch (error) {
+        console.error('Ошибка поиска по преподавателям:', error);
+        highlightedAudiences.value.clear();
+        searchResultAudiences.value.clear();
+      }
     };
 
-    const getResultIcon = (result) => {
-      const icons = {
-        'audience': 'fa-door-open',
-        'group': 'fa-users',
-        'teacher': 'fa-chalkboard-teacher'
-      };
-      return icons[result.type] || 'fa-search';
+    const debounceSearchAudiences = () => {
+      clearTimeout(searchAudienceTimeout);
+      searchAudienceTimeout = setTimeout(searchAudiences, 500);
     };
 
-    // История поиска
+    const debounceSearchGroups = () => {
+      clearTimeout(searchGroupTimeout);
+      searchGroupTimeout = setTimeout(searchGroups, 500);
+    };
+
+    const debounceSearchTeachers = () => {
+      clearTimeout(searchTeacherTimeout);
+      searchTeacherTimeout = setTimeout(searchTeachers, 500);
+    };
+
     const addToSearchHistory = (term, type) => {
       const existingIndex = searchHistory.value.findIndex(
         item => item.term === term && item.type === type
       );
       
       if (existingIndex !== -1) {
-        searchHistory.value[existingIndex].timestamp = new Date();
+        searchHistory.value[existingIndex].timestamp = new Date().toLocaleTimeString();
       } else {
         searchHistory.value.unshift({
           term,
           type,
-          timestamp: new Date()
+          timestamp: new Date().toLocaleTimeString()
         });
       }
       
@@ -1409,55 +1728,41 @@ export default {
       closePanel();
     };
 
-    const getHistoryIcon = (type) => {
-      const icons = {
-        'Аудитория': 'fa-door-open',
-        'Группа': 'fa-users',
-        'Преподаватель': 'fa-chalkboard-teacher'
-      };
-      return icons[type] || 'fa-search';
-    };
-
-    const getHistoryTypeName = (type) => {
-      const types = {
-        'Аудитория': 'Аудитория',
-        'Группа': 'Группа',
-        'Преподаватель': 'Преподаватель'
-      };
-      return types[type] || type;
-    };
-
-    const formatTime = (timestamp) => {
-      const date = new Date(timestamp);
-      const now = new Date();
-      const diff = now - date;
+    const openModal = async (audience) => {
+      currentAudience.value = audience;
+      currentImages.value = [
+        audience.image1,
+        audience.image2,
+        audience.image3
+      ].filter(img => img);
       
-      if (diff < 60000) return 'только что';
-      if (diff < 3600000) return `${Math.floor(diff / 60000)} мин назад`;
-      if (diff < 86400000) return `${Math.floor(diff / 3600000)} ч назад`;
-      return date.toLocaleDateString();
+      const scheduleAllowedTypes = ['lecture', 'computer', 'study'];
+      if (scheduleAllowedTypes.includes(audience.audience_type)) {
+        await fetchSchedule(audience.id);
+      } else {
+        schedule.value = [];
+      }
+      
+      if (audience.audience_type === 'cafe') {
+        await fetchBuffetMenu();
+      }
+      
+      showModal.value = true;
+      activeModalTab.value = 'info';
     };
 
-    const formatPrice = (price) => {
-        return new Intl.NumberFormat('ru-RU', {
-            style: 'currency',
-            currency: 'RUB',
-            minimumFractionDigits: 0
-        }).format(price);
-        };
-        
-    // Навигация
-    const toggleViewMode = async () => {
-        if (viewMode.value === '2d') {
-            viewMode.value = '3d';
-            await nextTick();
-            init3DScene();
-            load3DFloor();
-        } else {
-            viewMode.value = '2d';  
-            cleanup3D();
-        }
-        };
+    const closeModal = () => {
+      showModal.value = false;
+    };
+
+    const openFullscreen = (image) => {
+      fullscreenImage.value = image;
+      showFullscreen.value = true;
+    };
+
+    const closeFullscreen = () => {
+      showFullscreen.value = false;
+    };
 
     const goToAuth = () => {
       router.push('/auth');
@@ -1466,298 +1771,427 @@ export default {
     const logout = () => {
       localStorage.removeItem('user');
       user.value = null;
-      showUserMenu.value = false;
-      showMobileMenu.value = false;
-      showNotification('Вы вышли из системы', 'info', 'fa-sign-out-alt');
+      router.push('/auth');
     };
 
     const goToProfile = () => {
       router.push('/profile');
+      closeMobileMenu();
+    };
+
+    const toggleUserMenu = () => {
+      goToProfile();
     };
 
     const goToUniversityMap = () => {
       router.push('/');
     };
 
-    const shareLocation = () => {
-      showNotification('Функция поделиться местоположением', 'info', 'fa-share-alt');
+    const isFavorite = (audience) => {
+      return false;
+    };
+
+    const toggleFavorite = (audience) => {
+      // Заглушка для функционала избранного
     };
 
     const shareAudience = () => {
-      showNotification('Аудитория скопирована в буфер', 'success', 'fa-link');
+      if (navigator.share) {
+        navigator.share({
+          title: `Аудитория ${currentAudience.value.num_audiences}`,
+          text: `Аудитория ${currentAudience.value.num_audiences} в БГИТУ`,
+          url: window.location.href
+        });
+      }
     };
 
     const navigateToAudience = () => {
-      showNotification('Построение маршрута', 'info', 'fa-route');
+      alert('Функция навигации будет реализована в будущем');
     };
 
-    // Drag для панели
-    const startPanelDrag = (e) => {
-      // Реализация drag для панели
-    };
-//'2': { scaleX: 0.16, scaleY: 0.16, offsetX: -2, offsetY: 184 },
-    const adjustAudienceCoordinates = (audiences) => {
-        // Коэффициенты масштабирования и смещения для каждого корпуса/этажа
-        const adjustments = {
-            '1': {
-            '1': { scaleX: 0.2, scaleY: 0.2, offsetX: 0, offsetY: 0 },
-            '2': { scaleX: 1.0, scaleY: 1.0, offsetX: 0, offsetY: 0 },
-            '3': { scaleX: 1.0, scaleY: 1.0, offsetX: 0, offsetY: 0 },
-            '4': { scaleX: 1.0, scaleY: 1.0, offsetX: 0, offsetY: 0 }
-            },
-            '2': {
-            '1': { scaleX: 1.0, scaleY: 1.0, offsetX: 0, offsetY: 0 },
-            '2': { scaleX: 1.0, scaleY: 1.0, offsetX: 0, offsetY: 0 },
-            '3': { scaleX: 1.0, scaleY: 1.0, offsetX: 0, offsetY: 0 },
-            '4': { scaleX: 1.0, scaleY: 1.0, offsetX: 0, offsetY: 0 }
-            }
-        };
-
-        return audiences.map(audience => {
-            const adjustment = adjustments[audience.corpus]?.[audience.floor] || adjustments['1']['1'];
-            
-            return {
-            ...audience,
-            x: (audience.x * adjustment.scaleX) + adjustment.offsetX,
-            y: (audience.y * adjustment.scaleY) + adjustment.offsetY,
-            width: audience.width * adjustment.scaleX,
-            height: audience.height * adjustment.scaleY
-            };
+    const shareLocation = () => {
+      if (navigator.share) {
+        navigator.share({
+          title: 'Мое местоположение в БГИТУ',
+          text: 'Я нахожусь в БГИТУ',
+          url: window.location.href
         });
-        };
+      }
+    };
+
+    const selectCorpus = (corpus) => {
+      selectedCorpus.value = corpus;
+      selectedFloor.value = '1';
+      if (viewMode.value === '3d') {
+        load3DFloor();
+      } else {
+        nextTick(() => {
+          resetView();
+        });
+      }
+    };
+
+    const selectFloor = async (floor) => {
+      selectedFloor.value = floor;
+      if (viewMode.value === '3d') {
+        load3DFloor();
+      } else {
+        nextTick(() => {
+          resetView();
+        });
+      }
+    };
+
+    const fetchBuffetMenu = async () => {
+      try {
+        const response = await axios.get('/api/buffet-menu');
+        buffetMenu.value = response.data;
+      } catch (error) {
+        console.error('Ошибка загрузки меню:', error);
+        buffetMenu.value = [];
+      }
+    };
+
+    // Panel drag methods
+    const startPanelDrag = (event) => {
+      // Заглушка для перетаскивания панели
+    };
 
     // 3D Methods
     const init3DScene = () => {
-        if (!threeDScene.value) return;
+      if (!threeDScene.value) return;
 
-        // Сцена с легким фоном
-        scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xf8fafc);
-        scene.fog = new THREE.Fog(0xf8fafc, 10, 25);
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xf0f8ff);
 
-        // Камера для мобильного вида
-        camera = new THREE.PerspectiveCamera(35, threeDScene.value.clientWidth / threeDScene.value.clientHeight, 0.1, 50);
-        camera.position.set(8, 12, 8);
+      camera = new THREE.PerspectiveCamera(35, threeDScene.value.clientWidth / threeDScene.value.clientHeight, 0.1, 1000);
+      camera.position.set(0, 15, 20);
 
-        // Рендерер с оптимизациями для мобильных
-        renderer = new THREE.WebGLRenderer({ 
-            antialias: true,
-            alpha: true,
-            powerPreference: "high-performance"
-        });
-        renderer.setSize(threeDScene.value.clientWidth, threeDScene.value.clientHeight);
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        renderer.outputEncoding = THREE.sRGBEncoding;
+      renderer = new THREE.WebGLRenderer({ 
+        antialias: true,
+        alpha: true
+      });
+      renderer.setSize(threeDScene.value.clientWidth, threeDScene.value.clientHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-        threeDScene.value.innerHTML = '';
-        threeDScene.value.appendChild(renderer.domElement);
+      threeDScene.value.innerHTML = '';
+      threeDScene.value.appendChild(renderer.domElement);
 
-        // Управление с ограничениями для мобильных
-        controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.minDistance = 3;
-        controls.maxDistance = 20;
-        controls.maxPolarAngle = Math.PI / 2.1;
-        controls.enablePan = true;
-        controls.panSpeed = 0.5;
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      
+      controls.minDistance = 4;
+      controls.maxDistance = 25;
+      controls.minPolarAngle = 0;
+      controls.maxPolarAngle = Math.PI * 0.8;
+      controls.enablePan = true;
+      controls.panSpeed = 0.5;
 
-        // УЛУЧШЕННОЕ ОСВЕЩЕНИЕ
-        // Основное окружающее освещение
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-        scene.add(ambientLight);
+      ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+      scene.add(ambientLight);
 
-        // Основной направленный свет (солнце)
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
-        directionalLight.position.set(15, 20, 10);
-        directionalLight.castShadow = true;
-        directionalLight.shadow.mapSize.width = 1024;
-        directionalLight.shadow.mapSize.height = 1024;
-        directionalLight.shadow.camera.near = 0.5;
-        directionalLight.shadow.camera.far = 30;
-        directionalLight.shadow.camera.left = -15;
-        directionalLight.shadow.camera.right = 15;
-        directionalLight.shadow.camera.top = 15;
-        directionalLight.shadow.camera.bottom = -15;
-        scene.add(directionalLight);
+      directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      directionalLight.position.set(15, 25, 15);
+      directionalLight.castShadow = true;
+      scene.add(directionalLight);
 
-        // Заполняющий свет спереди
-        const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
-        fillLight.position.set(-8, 5, 8);
-        scene.add(fillLight);
+      const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
+      fillLight.position.set(-10, 10, -10);
+      scene.add(fillLight);
 
-        // Боковой свет для контраста
-        const rimLight = new THREE.DirectionalLight(0xffffff, 0.3);
-        rimLight.position.set(-5, 3, -8);
-        scene.add(rimLight);
+      gridHelper = new THREE.GridHelper(50, 50, 0x000000, 0x000000);
+      gridHelper.visible = false;
+      scene.add(gridHelper);
 
-        // Верхний свет
-        const topLight = new THREE.DirectionalLight(0xffffff, 0.5);
-        topLight.position.set(0, 15, 0);
-        scene.add(topLight);
+      raycaster = new THREE.Raycaster();
 
-        // Сетка для ориентира
-        const gridHelper = new THREE.GridHelper(30, 10, 0x000000, 0x000000);
-        gridHelper.position.y = 0.01;
-        gridHelper.visible = false;
-        scene.add(gridHelper);
+      window.addEventListener('resize', onWindowResize);
+      renderer.domElement.addEventListener('mousemove', onMouseMove);
+      renderer.domElement.addEventListener('click', onCanvasClick);
 
-        // Raycaster для взаимодействий
-        raycaster = new THREE.Raycaster();
+      animate();
+    };
 
-        // Адаптация к размерам экрана
-        window.addEventListener('resize', onWindowResize);
-        renderer.domElement.addEventListener('click', onCanvasClick);
+    const load3DFloor = () => {
+      if (isLoadingFloor.value) return;
+      
+      isLoadingFloor.value = true;
+      loadProgress.value = 0;
 
-        // Запуск анимации
-        animate();
-        };
-
-    const load3DFloor = async () => {
-        if (isLoadingFloor.value) return;
-        
-        isLoadingFloor.value = true;
-        loadProgress.value = 10;
-
-        try {
-            // Быстрая очистка сцены
-            scene.children.length = 0;
-
-            // Сразу создаем базовый пол для мгновенного отображения
-            const floorGeometry = new THREE.PlaneGeometry(40, 40);
-            const floorMaterial = new THREE.MeshLambertMaterial({ 
-            color: 0xdddddd,
-            transparent: true,
-            opacity: 0.8
-            });
-            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-            floor.rotation.x = -Math.PI / 2;
-            floor.receiveShadow = true;
-            scene.add(floor);
-
-            loadProgress.value = 30;
-
-            // Параллельно загружаем модель и создаем аудитории
-            await Promise.all([
-            loadFloorModel(),
-            createAudienceObjects3D()
-            ]);
-
-            loadProgress.value = 100;
-            
-            setTimeout(() => {
-            isLoadingFloor.value = false;
-            loadProgress.value = 0;
-            }, 300);
-
-        } catch (error) {
-            console.error('Ошибка загрузки этажа:', error);
-            isLoadingFloor.value = false;
-            loadProgress.value = 0;
+      if (floorModel) {
+        scene.remove(floorModel);
+        if (floorModel.geometry) floorModel.geometry.dispose();
+        if (floorModel.material) {
+          if (Array.isArray(floorModel.material)) {
+            floorModel.material.forEach(material => material.dispose());
+          } else {
+            floorModel.material.dispose();
+          }
         }
-        };
+        floorModel = null;
+      }
+
+      audienceObjects.forEach((obj) => {
+        scene.remove(obj);
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          if (Array.isArray(obj.material)) {
+            obj.material.forEach(material => material.dispose());
+          } else {
+            obj.material.dispose();
+          }
+        }
+      });
+      audienceObjects.clear();
+
+      const loader = new FBXLoader();
+      const modelPath = `/models/${selectedCorpus.value}corpus/floor${selectedFloor.value}.fbx`;
+      
+      loader.load(
+        modelPath,
+        async (object) => {
+          isLoadingFloor.value = false;
+          loadProgress.value = 100;
+          
+          floorModel = object;
+          floorModel.scale.set(0.1, 0.1, 0.1);
+          floorModel.position.y = 0;
+          floorModel.name = `floor_${selectedCorpus.value}_${selectedFloor.value}`;
+          
+          scene.add(floorModel);
+          
+          await createAudienceObjects3D();
+          
+          setTimeout(() => {
+            loadProgress.value = 0;
+          }, 1000);
+        },
+        (progress) => {
+          if (progress.lengthComputable) {
+            loadProgress.value = (progress.loaded / progress.total) * 100;
+          }
+        },
+        (error) => {
+          isLoadingFloor.value = false;
+          loadProgress.value = 0;
+          console.error('Error loading 3D model:', error);
+          createFallbackFloor();
+          createAudienceObjects3D();
+        }
+      );
+    };
+
+    const createFallbackFloor = () => {
+      const oldFloor = scene.getObjectByName('fallback_floor');
+      if (oldFloor) {
+        scene.remove(oldFloor);
+        if (oldFloor.geometry) oldFloor.geometry.dispose();
+        if (oldFloor.material) oldFloor.material.dispose();
+      }
+
+      const floorGeometry = new THREE.PlaneGeometry(50, 50);
+      const floorMaterial = new THREE.MeshLambertMaterial({ color: 0x808080 });
+      floorModel = new THREE.Mesh(floorGeometry, floorMaterial);
+      floorModel.name = 'fallback_floor';
+      floorModel.rotation.x = -Math.PI / 2;
+      scene.add(floorModel);
+    };
+
     const createAudienceObjects3D = async () => {
-        try {
-            const response = await axios.get(`/api/audiences-3d/${selectedCorpus.value}/${selectedFloor.value}`);
-            const audience3DData = response.data;
-            
-            audience3DData.forEach(audience3D => {
-            const audience = audiences.value.find(a => a.id === audience3D.audience_id);
-            if (!audience) return;
-
-            const color = new THREE.Color(getAudienceColor(audience.audience_type, 1));
-            
-            const geometry = new THREE.BoxGeometry(
-                audience3D.scale_x || 1.5,
-                audience3D.scale_y || 2.5,
-                audience3D.scale_z || 1.5
-            );
-            
-            const material = new THREE.MeshLambertMaterial({ 
-                color: color,
-                transparent: true,
-                opacity: 0.3
-            });
-            
-            const cube = new THREE.Mesh(geometry, material);
-            
-            cube.position.set(
-                audience3D.position_x || 0,
-                (audience3D.position_y || 0) + 1.25, // Поднимаем над полом
-                audience3D.position_z || 0
-            );
-            
-            cube.userData = { audience };
-            cube.castShadow = true;
-            cube.receiveShadow = true;
-            
-            scene.add(cube);
-            audienceObjects.set(audience.id, cube);
-            });
-            
-            loadProgress.value = 90;
-            
-        } catch (error) {
-            console.warn('3D координаты не найдены, используем упрощенный вид');
-            createFallback3DAudiences();
-        }
-        };
-    
-    const loadFloorModel = () => {
-        return new Promise((resolve, reject) => {
-            const loader = new FBXLoader();
-            const modelPath = `/models/${selectedCorpus.value}corpus/floor${selectedFloor.value}.fbx`;
-            
-            loader.load(
-            modelPath,
-            (object) => {
-                object.scale.set(0.08, 0.08, 0.08);
-                object.position.y = 0.1; // Немного выше базового пола
-                
-                // Оптимизация: упрощаем материалы для мобильных устройств
-                object.traverse((child) => {
-                if (child.isMesh) {
-                    child.castShadow = true;
-                    child.receiveShadow = true;
-                    
-                    // Упрощаем материалы для лучшей производительности
-                    if (child.material) {
-                    if (Array.isArray(child.material)) {
-                        child.material.forEach(mat => {
-                        mat.shininess = 0;
-                        mat.specular.set(0x000000);
-                        });
-                    } else {
-                        child.material.shininess = 0;
-                        child.material.specular.set(0x000000);
-                    }
-                    }
-                }
-                });
-                
-                scene.add(object);
-                loadProgress.value = 70;
-                resolve(object);
-            },
-            (progress) => {
-                if (progress.lengthComputable) {
-                const modelProgress = (progress.loaded / progress.total) * 40; // 40% от общего прогресса
-                loadProgress.value = 30 + modelProgress;
-                }
-            },
-            (error) => {
-                console.warn('3D модель не найдена, используем базовый вид');
-                resolve(null); // Не реджектим, просто используем fallback
+      try {
+        const response = await axios.get(`/api/audiences-3d/${selectedCorpus.value}/${selectedFloor.value}`);
+        const audience3DData = response.data;
+        
+        audienceObjects.forEach((obj) => {
+          scene.remove(obj);
+          if (obj.geometry) obj.geometry.dispose();
+          if (obj.material) {
+            if (Array.isArray(obj.material)) {
+              obj.material.forEach(material => material.dispose());
+            } else {
+              obj.material.dispose();
             }
-            );
+          }
         });
-        };
-    
+        audienceObjects.clear();
+
+        audience3DData.forEach(audience3D => {
+          const audience = audiences.value.find(a => a.id === audience3D.audience_id);
+          if (!audience) return;
+
+          const color = new THREE.Color(getAudienceColor(audience.audience_type).replace('rgba(', '').replace(')', '').split(',')[0]);
+          
+          const geometry = new THREE.BoxGeometry(
+            audience3D.scale_x || 1,
+            audience3D.scale_y || 2,
+            audience3D.scale_z || 1
+          );
+          
+          const material = new THREE.MeshLambertMaterial({ 
+            color: color,
+            transparent: true,
+            opacity: 0.2
+          });
+          
+          const cube = new THREE.Mesh(geometry, material);
+          
+          cube.position.set(
+            audience3D.position_x,
+            audience3D.position_y,
+            audience3D.position_z
+          );
+          
+          if (audience3D.rotation_x || audience3D.rotation_y || audience3D.rotation_z) {
+            cube.rotation.set(
+              audience3D.rotation_x || 0,
+              audience3D.rotation_y || 0,
+              audience3D.rotation_z || 0
+            );
+          }
+          
+          cube.userData = { 
+            audience: {
+              ...audience,
+              position_x: audience3D.position_x,
+              position_y: audience3D.position_y,
+              position_z: audience3D.position_z
+            }
+          };
+          cube.castShadow = true;
+          cube.receiveShadow = true;
+          
+          scene.add(cube);
+          audienceObjects.set(audience.id, cube);
+
+          createAudienceLabel(audience, audience3D, color);
+        });
+      } catch (error) {
+        console.error('Ошибка загрузки 3D координат:', error);
+        createFallback3DAudiences();
+      }
+    };
+
+    const createAudienceLabel = (audience, audience3D, color) => {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.width = 256;
+      canvas.height = 128;
+      
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = color.getStyle();
+      context.font = 'bold 48px Arial';
+      context.textAlign = 'center';
+      context.fillText(audience.num_audiences, canvas.width / 2, canvas.height / 2 + 16);
+      
+      const texture = new THREE.CanvasTexture(canvas);
+      const labelMaterial = new THREE.SpriteMaterial({ map: texture });
+      const sprite = new THREE.Sprite(labelMaterial);
+      sprite.scale.set(3, 1.5, 1);
+      
+      sprite.position.set(
+        audience3D.position_x,
+        audience3D.position_y + 2,
+        audience3D.position_z
+      );
+      sprite.userData = { audience };
+      
+      scene.add(sprite);
+      audienceObjects.set(audience.id + '_label', sprite);
+    };
+
+    const createFallback3DAudiences = () => {
+      const floorAudiences = filteredAudiences.value;
+      
+      floorAudiences.forEach(audience => {
+        const color = new THREE.Color(getAudienceColor(audience.audience_type).replace('rgba(', '').replace(')', '').split(',')[0]);
+        
+        const geometry = new THREE.BoxGeometry(
+          audience.width / 100, 
+          2, 
+          audience.height / 100
+        );
+        
+        const material = new THREE.MeshLambertMaterial({ 
+          color: color,
+          transparent: true,
+          opacity: 0.2
+        });
+        
+        const cube = new THREE.Mesh(geometry, material);
+        cube.position.set(
+          audience.x / 100 - 25, 
+          1, 
+          audience.y / 100 - 25
+        );
+        cube.userData = { audience };
+        cube.castShadow = true;
+        cube.receiveShadow = true;
+        
+        scene.add(cube);
+        audienceObjects.set(audience.id, cube);
+
+        createAudienceLabel(audience, {
+          position_x: audience.x / 100 - 25,
+          position_y: 3,
+          position_z: audience.y / 100 - 25
+        }, color);
+      });
+    };
+
+    const onMouseMove = (event) => {
+      if (!raycaster || !camera || viewMode.value !== '3d') return;
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      
+      const intersects = raycaster.intersectObjects(Array.from(audienceObjects.values()));
+      
+      if (intersects.length > 0) {
+        const object = intersects[0].object;
+        if (object.userData.audience) {
+          hoveredAudience3D.value = object.userData.audience;
+          
+          object.material.emissive = new THREE.Color(0x333333);
+          object.material.needsUpdate = true;
+        }
+      } else {
+        audienceObjects.forEach((obj) => {
+          if (obj.material && obj.material.emissive) {
+            obj.material.emissive.set(0x000000);
+            obj.material.needsUpdate = true;
+          }
+        });
+        hoveredAudience3D.value = null;
+      }
+    };
+
+    const onCanvasClick = (event) => {
+      if (!raycaster || !camera || viewMode.value !== '3d') return;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(Array.from(audienceObjects.values()));
+      
+      if (intersects.length > 0) {
+        const object = intersects[0].object;
+        if (object.userData.audience) {
+          openModal(object.userData.audience);
+        }
+      }
+    };
+
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
       
       if (controls) {
+        if (camera.position.y < 1) {
+          camera.position.y = 1;
+        }
         controls.update();
       }
       
@@ -1773,12 +2207,24 @@ export default {
       }
 
       if (scene) {
+        scene.traverse((object) => {
+          if (object.geometry) object.geometry.dispose();
+          if (object.material) {
+            if (Array.isArray(object.material)) {
+              object.material.forEach(material => material.dispose());
+            } else {
+              object.material.dispose();
+            }
+          }
+          if (object.texture) object.texture.dispose();
+        });
         scene.clear();
         scene = null;
       }
 
       if (renderer) {
         renderer.dispose();
+        renderer.forceContextLoss();
         if (renderer.domElement) {
           renderer.domElement.remove();
         }
@@ -1791,141 +2237,79 @@ export default {
       }
 
       camera = null;
+      audienceObjects.clear();
+
+      window.removeEventListener('resize', onWindowResize);
+      if (threeDScene.value) {
+        threeDScene.value.innerHTML = '';
+      }
+
+      hoveredAudience3D.value = null;
+      isLoadingFloor.value = false;
+      loadProgress.value = 0;
     };
-
-    const createFallback3DAudiences = () => {
-        const floorAudiences = filteredAudiences.value;
-        
-        floorAudiences.forEach(audience => {
-            const color = new THREE.Color(getAudienceColor(audience.audience_type, 1));
-            
-            const geometry = new THREE.BoxGeometry(
-            audience.width / 100, 
-            2.5, 
-            audience.height / 100
-            );
-            
-            const material = new THREE.MeshLambertMaterial({ 
-            color: color,
-            transparent: true,
-            opacity: 0.3
-            });
-            
-            const cube = new THREE.Mesh(geometry, material);
-            cube.position.set(
-            audience.x / 100 - 25, 
-            1.25, 
-            audience.y / 100 - 25
-            );
-            cube.userData = { audience };
-            cube.castShadow = true;
-            cube.receiveShadow = true;
-            
-            scene.add(cube);
-            audienceObjects.set(audience.id, cube);
-        });
-    };
-
-    const onWindowResize = () => {
-        if (viewMode.value === '3d') {
-            if (camera && renderer && threeDScene.value) {
-            camera.aspect = threeDScene.value.clientWidth / threeDScene.value.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(threeDScene.value.clientWidth, threeDScene.value.clientHeight);
-            }
-        }
-    };
-
-    const onCanvasClick = (event) => {
-        if (!raycaster || !camera || viewMode.value !== '3d') return;
-
-        const rect = renderer.domElement.getBoundingClientRect();
-        const mouse = new THREE.Vector2();
-        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-        raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObjects(Array.from(audienceObjects.values()));
-        
-        if (intersects.length > 0) {
-            const object = intersects[0].object;
-            if (object.userData.audience) {
-            openModal(object.userData.audience);
-            }
-        }
-    };
-
-    // Вспомогательная функция debounce
-    function debounce(func, wait) {
-      let timeout;
-      return function executedFunction(...args) {
-        const later = () => {
-          clearTimeout(timeout);
-          func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-      };
-    }
 
     // Инициализация
     onMounted(async () => {
-        await fetchAudiences();
-        
-        // Оптимизация для мобильных устройств
-        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-            // Ограничиваем частоту кадров для экономии батареи
-            const targetFPS = 30;
-            let then = performance.now();
-            const interval = 1000 / targetFPS;
-            
-            const animateMobile = (now) => {
-            requestAnimationFrame(animateMobile);
-            const delta = now - then;
-            
-            if (delta > interval) {
-                then = now - (delta % interval);
-                if (renderer && scene && camera) {
-                renderer.render(scene, camera);
-                }
-                if (controls) {
-                controls.update();
-                }
-            }
-            };
-            
-            // Запускаем оптимизированную анимацию
-            animateMobile();
-        }
-        
-        // Слушатель скролла для показа быстрой навигации
-        const handleScroll = () => {
-            isScrolled.value = window.pageYOffset > 50;
-            showQuickNav.value = window.pageYOffset > 100;
-        };
-        
-        window.addEventListener('scroll', handleScroll);
-        
-        // Загрузка избранного из localStorage
-        const savedFavorites = localStorage.getItem('favorites');
-        if (savedFavorites) {
-            favorites.value = new Set(JSON.parse(savedFavorites));
-        }
-        }
-    );
+      await fetchAudiences();
+      await fetchGroups();
+      await fetchTeachers();
+      
+      // Устанавливаем начальный масштаб
+      scale.value = zoomConfig.value.initial;
+      
+      // Центрируем карту после загрузки DOM
+      nextTick(() => {
+        centerMap();
+      });
+      
+      // Добавляем обработчик изменения размера окна
+      window.addEventListener('resize', onWindowResize);
+      
+      // Обработка скролла для навигационной панели
+      const handleScroll = () => {
+        isScrolled.value = window.scrollY > 10;
+      };
+      
+      window.addEventListener('scroll', handleScroll);
+      
+      return () => {
+        window.removeEventListener('scroll', handleScroll);
+        window.removeEventListener('resize', onWindowResize);
+      };
+    });
 
     onUnmounted(() => {
-      // Очистка ресурсов
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
+      cleanup3D();
+    });
+
+    // Watchers
+    watch([selectedCorpus, selectedFloor], async () => {
+      if (viewMode.value === '2d') {
+        nextTick(() => {
+          resetView();
+        });
       }
-      
-      // Сохранение избранного
-      localStorage.setItem('favorites', JSON.stringify([...favorites.value]));
+    });
+
+    watch(activePanel, () => {
+      if (viewMode.value === '2d') {
+        setTimeout(() => {
+          centerMap();
+        }, 300);
+      }
+    });
+
+    watch(showMobileMenu, () => {
+      if (viewMode.value === '2d') {
+        setTimeout(() => {
+          centerMap();
+        }, 300);
+      }
     });
 
     return {
-      // Data
+      // Реактивные данные
       audiences,
       currentAudience,
       currentImages,
@@ -1937,9 +2321,7 @@ export default {
       showModal,
       showFullscreen,
       showMobileMenu,
-      showUserMenu,
-      showQuickActions,
-      showQuickNav,
+      showScheduleSection,
       activePanel,
       activeSearchTab,
       activeModalTab,
@@ -1954,21 +2336,20 @@ export default {
       selectedFilters,
       showOnlyAvailable,
       showEquipment,
-      searchResults,
+      isScrolled,
+      showQuickActions,
+      favoriteMode,
+      hasNotifications,
       scale,
       position,
-      userLocation,
-      isScrolled,
-      favoriteMode,
-      favorites,
-      notifications,
       svgWidth,
       svgHeight,
-      threeDScene, // Добавлено в return!
-      mapContent,
-      svgElement,
+      buffetMenu,
+      menuCategories,
+      getMenuByCategory,
+      selectedCategory,
       
-      // Constants
+      // Константы
       corpuses,
       floors,
       days,
@@ -1980,75 +2361,88 @@ export default {
       currentMapImage,
       filteredAudiences,
       groupedSchedule,
-      showScheduleSection,
+      searchResults,
       viewModeIcon,
       viewModeText,
-      getMenuByCategory,
-      menuCategories,
-      selectedCategory,
-      hasNotifications,
       
-      // Methods
-      toggleMobileMenu,
-      closeMobileMenu,
-      toggleUserMenu,
-      toggleQuickActions,
-      toggleFavoriteMode,
-      togglePanel,
-      closePanel,
-      getPanelIcon,
-      getPanelTitle,
-      handleMenuNavigation,
-      getSearchValue,
-      onSearchInput,
-      getSearchPlaceholder,
-      getSearchTabIcon,
-      getQuickSearchItems,
-      applyQuickSearch,
-      onTouchStart,
-      onTouchMove,
-      onTouchEnd,
+      // Refs
+      mapContent,
+      svgElement,
+      threeDScene,
+
+      // МЕТОДЫ МАСШТАБИРОВАНИЯ И ЦЕНТРИРОВАНИЯ
+      setZoomConfig,
       zoomIn,
       zoomOut,
       resetView,
-      centerOnUser,
-      toggleFavorite,
-      isFavorite,
-      removeNotification,
-      openModal,
-      closeModal,
-      openFullscreen,
-      closeFullscreen,
+      zoomToPoint,
+      setZoom,
+      getZoomConfig,
+      centerMap,
+      centerToPoint,
+      
+      // Обработчики жестов
+      onTouchStart,
+      onTouchMove,
+      onTouchEnd,
+      onDoubleTap,
+      
+      // Новые методы
+      getFloorIcon,
+      getAudienceStrokeColor,
+      isSearchResult,
+      centerToAudience,
+
+      // Остальные методы
+      toggleViewMode,
+      toggleMobileMenu,
+      closeMobileMenu,
+      togglePanel,
+      closePanel,
+      toggleQuickActions,
+      toggleFavoriteMode,
       selectCorpus,
       selectFloor,
-      toggleFilter,
-      resetFilters,
-      applyFilters,
-      clearSearch,
-      clearHistory,
-      handleSearchResultClick,
-      getResultIcon,
-      applySearchHistory,
-      getHistoryIcon,
-      getHistoryTypeName,
-      formatTime,
-      getCategoryName,
-      formatPrice,
-      toggleViewMode,
       goToAuth,
       logout,
       goToProfile,
+      toggleUserMenu,
       goToUniversityMap,
-      shareLocation,
+      isFavorite,
+      toggleFavorite,
       shareAudience,
       navigateToAudience,
-      startPanelDrag,
-      getAudienceColor,
+      shareLocation,
+      getPanelIcon,
+      getPanelTitle,
+      getSearchTabIcon,
+      getSearchValue,
+      getSearchPlaceholder,
+      onSearchInput,
+      clearSearch,
+      getQuickSearchItems,
+      applyQuickSearch,
+      getResultIcon,
+      handleSearchResultClick,
+      getHistoryIcon,
+      getHistoryTypeName,
+      formatTime,
+      clearHistory,
+      applySearchHistory,
+      toggleFilter,
+      resetFilters,
+      applyFilters,
+      handleMenuNavigation,
       getAudienceTypeName,
       getAudienceIcon,
-      loadFloorModel,
-      adjustAudienceCoordinates,
-
+      getAudienceColor,
+      getCategoryName,
+      formatPrice,
+      startPanelDrag,
+      openModal,
+      closeModal,
+      openFullscreen,
+      closeFullscreen
     };
   }
 };
@@ -2125,12 +2519,23 @@ export default {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  width: 24px;
-  height: 18px;
+  width: 28px;
+  height: 28px;
   background: none;
   border: none;
   padding: 0;
   transition: transform 0.3s ease;
+  position: relative;
+}
+
+.burger-line {
+  display: block;
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(135deg, #4361ee, #3a0ca3);
+  border-radius: 2px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: center;
 }
 
 .burger-menu span {
@@ -2143,16 +2548,23 @@ export default {
   transform-origin: center;
 }
 
-.burger-menu.active span:nth-child(1) {
-  transform: rotate(45deg) translate(6px, 6px);
+.burger-menu.active .burger-line:nth-child(1) {
+  transform: rotate(45deg) translate(8px, 8px);
+  background: #4361ee;
 }
 
-.burger-menu.active span:nth-child(2) {
+.burger-menu.active .burger-line:nth-child(2) {
   opacity: 0;
+  transform: scale(0);
 }
 
-.burger-menu.active span:nth-child(3) {
-  transform: rotate(-45deg) translate(6px, -6px);
+.burger-menu.active .burger-line:nth-child(3) {
+  transform: rotate(-45deg) translate(8px, -8px);
+  background: #4361ee;
+}
+
+.burger-menu:active {
+  transform: scale(0.9);
 }
 
 .logo {
@@ -2212,57 +2624,6 @@ export default {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-/* Быстрая навигация */
-.quick-nav {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  padding: 12px 16px;
-  z-index: 999;
-}
-
-.quick-nav-items {
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-}
-
-.quick-nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  color: #718096;
-  font-size: 12px;
-  transition: all 0.2s ease;
-}
-
-.quick-nav-item.active {
-  color: #4361ee;
-}
-
-.quick-nav-item i {
-  font-size: 18px;
-  margin-bottom: 2px;
-}
-
-.slide-down-enter-active,
-.slide-down-leave-active {
-  transition: all 0.3s ease;
-}
-
-.slide-down-enter-from,
-.slide-down-leave-to {
-  transform: translateY(-10px);
-  opacity: 0;
 }
 
 /* Основное меню */
@@ -2673,22 +3034,20 @@ export default {
 }
 
 .map-container {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  touch-action: none;
   position: relative;
+  flex: 1;
+  overflow: hidden;
+  background-color: #1a202cfa;
+  width: 700px;
+  height: 1440px;
 }
 
 .map-content {
-  width: 100%;
-  height: 100%;
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
-  transform-origin: center center;
-  transition: transform 0.1s ease;
+  width: 2000px;
+  height: 1440px;
+  background-size: cover;
   position: relative;
+  transition: background-image 0.5s ease-in-out;
 }
 
 .audience-svg {
@@ -2699,6 +3058,7 @@ export default {
   height: 100%;
   pointer-events: none;
 }
+
 /* Аудитории на карте */
 .audience-rect {
   cursor: pointer;
@@ -2721,12 +3081,17 @@ export default {
   stroke-width: 3;
 }
 
+.audience-rect.search-result {
+  stroke: #10b981;
+  stroke-width: 3;
+  animation: pulse-green 2s infinite;
+}
+
 .audience-label {
   pointer-events: all;
   cursor: pointer;
   user-select: none;
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  text-shadow: 0 0 2px white, 0 0 2px white, 0 0 2px white;
 }
 
 @keyframes pulse {
@@ -2735,86 +3100,202 @@ export default {
   100% { opacity: 0.6; }
 }
 
-.corpus-selector {
+@keyframes pulse-green {
+  0% { 
+    stroke: #10b981;
+    filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.5));
+  }
+  50% { 
+    stroke: #34d399;
+    filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.8));
+  }
+  100% { 
+    stroke: #10b981;
+    filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.5));
+  }
+}
+
+/* Улучшенный переключатель корпусов */
+.corpus-selector-enhanced {
   position: absolute;
   top: 80px;
-  right: 12px;
+  left: 12px;
   z-index: 50;
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  min-width: 80px;
+}
+
+.corpus-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: #4361ee;
+  font-weight: 600;
+  font-size: 12px;
+  justify-content: center;
+}
+
+.corpus-header i {
+  font-size: 12px;
 }
 
 .corpus-buttons {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  padding: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  gap: 6px;
 }
 
 .corpus-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  color: #4a5568;
-  font-size: 16px;
-  font-weight: 600;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  padding: 8px 10px;
+  border: 2px solid #1a202c;
+  border-radius: 12px;
+  background-color: #2d3748;
+  color:#4361ee;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  min-width: 40px;
+  font-size: 14px;
 }
 
 .corpus-btn.active {
-  background: #4361ee;
+  background: linear-gradient(135deg, #4361ee, #3a0ca3);
   color: white;
   border-color: #4361ee;
-  transform: scale(1.05);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
 }
 
-.floor-selector {
+.corpus-btn:active {
+  transform: scale(0.95);
+}
+
+.corpus-number {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* Горизонтальный переключатель этажей */
+.floor-selector-horizontal {
   position: absolute;
-  bottom: 100px;
+  bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 50;
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  min-width: 200px;
 }
 
 .floor-buttons {
   display: flex;
   gap: 8px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  padding: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  justify-content: center;
 }
 
 .floor-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  color: #4a5568;
-  font-size: 16px;
-  font-weight: 600;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 2px solid #1a202c;
+  border-radius: 12px;
+  background-color: #2d3748;
+  color:#4361ee;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  min-width: 50px;
+  justify-content: center
 }
 
 .floor-btn.active {
-  background: #4361ee;
+  background: linear-gradient(135deg, #4361ee, #3a0ca3);
   color: white;
   border-color: #4361ee;
-  transform: scale(1.05);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(67, 97, 238, 0.3);
+}
+
+.floor-btn:active {
+  transform: scale(0.95);
+}
+
+.floor-icon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(67, 97, 238, 0.1);
+  border-radius: 6px;
+  color: #4361ee;
+  transition: all 0.3s ease;
+  font-size: 10px;
+}
+
+.floor-btn.active .floor-icon {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.floor-number {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Кнопки действий на карте (справа сверху) */
+.map-actions-top-right {
+  position: absolute;
+  top: 80px;
+  right: 12px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.map-action-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 2px solid #1a202c;
+  background-color: #2d3748;
+  color:#4361ee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.map-action-btn:active {
+  background: linear-gradient(135deg, #4361ee, #3a0ca3);
+  border-color: #4361ee;
+  transform: scale(0.9);
+}
+
+.map-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .map-status {
@@ -2854,6 +3335,31 @@ export default {
   z-index: 50;
 }
 
+.location-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: white;
+  color: #4a5568;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.location-chip.active {
+  background: #4361ee;
+  color: white;
+  border-color: #4361ee;
+}
+
+.location-chip i {
+  font-size: 12px;
+}
+
 .location-btn {
   width: 50px;
   height: 50px;
@@ -2872,72 +3378,6 @@ export default {
 
 .location-btn:active {
   transform: scale(0.95);
-}
-
-/* Быстрый переключатель корпусов/этажей */
-.quick-location-panel {
-  position: absolute;
-  top: 80px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 20px;
-  padding: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  z-index: 50;
-  min-width: 200px;
-}
-
-.location-tabs {
-  display: flex;
-  background: #f8fafc;
-  border-radius: 12px;
-  padding: 4px;
-  margin-bottom: 8px;
-}
-
-.location-tab {
-  flex: 1;
-  padding: 8px 12px;
-  border: none;
-  background: transparent;
-  border-radius: 8px;
-  color: #718096;
-  font-size: 12px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.location-tab.active {
-  background: white;
-  color: #4361ee;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.location-selector {
-  display: flex;
-  gap: 6px;
-}
-
-.location-option {
-  padding: 8px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: white;
-  color: #4a5568;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.location-option.active {
-  background: #4361ee;
-  color: white;
-  border-color: #4361ee;
 }
 
 /* Нижние панели */
@@ -3533,7 +3973,7 @@ export default {
   background: transparent;
   border-radius: 8px;
   color: #718096;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   transition: all 0.2s ease;
   cursor: pointer;
@@ -3923,14 +4363,91 @@ export default {
   opacity: 0;
 }
 
-@keyframes slideInRight {
+/* Анимации */
+@keyframes slideIn {
   from {
-    transform: translateX(100%);
     opacity: 0;
+    transform: translateY(20px);
   }
   to {
-    transform: translateX(0);
     opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.corpus-selector-enhanced,
+.floor-selector-horizontal,
+.map-actions-top-right {
+  animation: slideIn 0.3s ease-out;
+}
+
+@supports(padding: max(0px)) {
+  .mobile-nav {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+    padding-top: env(safe-area-inset-top);
+    height: calc(60px + env(safe-area-inset-top));
+  }
+  
+  .map-view-container {
+    top: calc(60px + env(safe-area-inset-top));
+  }
+  
+  .floor-selector-horizontal {
+    bottom: max(20px, env(safe-area-inset-bottom) + 20px);
+  }
+  
+  .floating-controls {
+    bottom: max(100px, env(safe-area-inset-bottom) + 20px);
+    right: max(20px, env(safe-area-inset-right) + 20px);
+  }
+  
+  .bottom-panel {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .modal-actions {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+}
+
+/* Улучшение touch-интерфейса */
+button {
+  min-height: 44px;
+  min-width: 44px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Оптимизация производительности */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Темная тема поддержка */
+@media (prefers-color-scheme: dark) {
+  .mobile-container {
+    background: #1a202c;
+  }
+  
+  .mobile-nav {
+    background: rgba(26, 32, 44, 0.98);
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
+  
+  .burger-menu span {
+    background: #e2e8f0;
+  }
+  
+  .nav-action-btn {
+    background: #2d3748;
+    color: #e2e8f0;
+  }
+  
+  .logo-text {
+    color: #e2e8f0;
   }
 }
 
@@ -4140,6 +4657,45 @@ export default {
   z-index: 50;
 }
 
+.info-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.info-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #2d3748;
+}
+
+.info-more-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  border: none;
+  background: #f1f5f9;
+  color: #718096;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.info-more-btn:active {
+  background: #4361ee;
+  color: white;
+}
+
+.audience-info-3d p {
+  margin: 0;
+  font-size: 14px;
+  color: #718096;
+}
+
 /* Адаптация для разных размеров экранов */
 @media (max-width: 360px) {
   .mobile-nav {
@@ -4159,11 +4715,15 @@ export default {
     padding: 8px;
   }
   
-  .corpus-btn,
+  .corpus-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 12px;
+  }
+  
   .floor-btn {
-    width: 40px;
-    height: 40px;
-    font-size: 14px;
+    min-width: 45px;
+    padding: 6px 8px;
   }
   
   .gallery-grid {
@@ -4188,8 +4748,8 @@ export default {
     top: calc(60px + env(safe-area-inset-top));
   }
   
-  .floor-selector {
-    bottom: max(100px, env(safe-area-inset-bottom) + 20px);
+  .floor-selector-horizontal {
+    bottom: max(20px, env(safe-area-inset-bottom) + 20px);
   }
   
   .floating-controls {
