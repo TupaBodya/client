@@ -203,7 +203,7 @@
                 'favorite': isFavorite(audience),
                 'search-result': isSearchResult(audience)
               }]"
-              :fill="getAudienceColor(audience.audience_type, 0.1)"
+              :fill="getAudienceColor(audience.audience_type, 0.05)"
               :stroke="getAudienceStrokeColor(audience)"
               stroke-width="2"
               @click="openModal(audience)"
@@ -218,8 +218,8 @@
               text-anchor="middle"
               dominant-baseline="middle"
               :fill="getAudienceStrokeColor(audience)"
-              font-weight="700"
-              font-size="12"
+              font-weight="900"
+              font-size="14"
               class="audience-label"
               @click="openModal(audience)"
             >
@@ -713,17 +713,29 @@ export default {
     // 2D карта состояния
     const mapContent = ref(null);
     const svgElement = ref(null);
-    const scale = ref(1);
+    const scale = ref(0.22);
     const position = ref({ x: 0, y: 0 });
     const svgWidth = ref(2000);
     const svgHeight = ref(1440);
 
+    // Система пресетов масштабирования
+    const zoomPresets = ref([
+      { scale: 0.20, position: { x: -3942, y: -1559 } },
+      { scale: 0.25, position: { x: -3139, y: -1220 } },
+      { scale: 0.30, position: { x: -2624, y: -932 } },
+      { scale: 0.35, position: { x: -2215, y: -728 } },
+      { scale: 0.40, position: { x: -1945, y: -682 } },
+      { scale: 0.45, position: { x: -1728, y: -575 } },
+      { scale: 0.50, position: { x: -1564, y: -453 } },
+      { scale: 0.55, position: { x: -1412, y: -518 } },
+    ]);
+
     // Настройки масштабирования
     const zoomConfig = ref({
       min: 0.2,
-      max: 3.0,
-      initial: 0.22,
-      step: 0.2
+      max: 0.55,
+      step: 0.05,
+      initial: 0.2
     });
     
     // Жесты для масштабирования
@@ -791,34 +803,144 @@ export default {
     ];
 
     const modalTabs = [
-      { id: 'info', label: 'Информация' },
-      { id: 'gallery', label: 'Фотографии' },
       { id: 'schedule', label: 'Расписание' },
+      { id: 'gallery', label: 'Фотографии' },
+      { id: 'info', label: 'Информация' },
       { id: 'menu', label: 'Меню' }
     ];
 
-    // МЕТОДЫ ДЛЯ ЦЕНТРИРОВАНИЯ КАРТЫ
+    // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ МАСШТАБИРОВАНИЯ
+    const getPositionForScale = (targetScale) => {
+      // Находим ближайшие пресеты для интерполяции
+      const presets = [...zoomPresets.value].sort((a, b) => a.scale - b.scale);
+      
+      // Если точное совпадение
+      const exactMatch = presets.find(p => Math.abs(p.scale - targetScale) < 0.001);
+      if (exactMatch) return { ...exactMatch.position };
+      
+      // Находим границы для интерполяции
+      let lower = null;
+      let upper = null;
+      
+      for (let i = 0; i < presets.length - 1; i++) {
+        if (targetScale >= presets[i].scale && targetScale <= presets[i + 1].scale) {
+          lower = presets[i];
+          upper = presets[i + 1];
+          break;
+        }
+      }
+      
+      // Если за пределами диапазона, возвращаем крайние значения
+      if (!lower || !upper) {
+        if (targetScale <= presets[0].scale) return { ...presets[0].position };
+        if (targetScale >= presets[presets.length - 1].scale) return { ...presets[presets.length - 1].position };
+      }
+      
+      // Линейная интерполяция
+      const ratio = (targetScale - lower.scale) / (upper.scale - lower.scale);
+      
+      return {
+        x: lower.position.x + (upper.position.x - lower.position.x) * ratio,
+        y: lower.position.y + (upper.position.y - lower.position.y) * ratio
+      };
+    };
+
+    const getCurrentZoomPreset = () => {
+      const currentScale = scale.value;
+      const closest = zoomPresets.value.reduce((prev, curr) => {
+        return (Math.abs(curr.scale - currentScale) < Math.abs(prev.scale - currentScale)) ? curr : prev;
+      });
+      
+      return closest;
+    };
+
+    const updateMapStatus = () => {
+      const preset = getCurrentZoomPreset();
+      const percentage = Math.round(scale.value * 100);
+      console.log(`Масштаб: ${percentage}%`);
+    };
+
+    // ОСНОВНЫЕ МЕТОДЫ ДЛЯ ЦЕНТРИРОВАНИЯ И МАСШТАБИРОВАНИЯ
     const centerMap = () => {
-      if (!mapContent.value) return;
-      
-      const container = mapContent.value.parentElement;
-      if (!container) return;
-      
-      position.value.x = -3550;
-      position.value.y = -1340;
-      
+      const currentPreset = getPositionForScale(scale.value);
+      position.value = { ...currentPreset };
       updateMapStatus();
     };
 
     const centerToPoint = (pointX, pointY) => {
-      if (!mapContent.value) return;
+      const currentPreset = getPositionForScale(scale.value);
+      position.value = { ...currentPreset };
+      updateMapStatus();
+    };
+
+    const zoomInCenter = () => {
+      const newScale = Math.min(zoomConfig.value.max, scale.value + zoomConfig.value.step);
+      if (newScale !== scale.value) {
+        const newPosition = getPositionForScale(newScale);
+        scale.value = newScale;
+        position.value = newPosition;
+        updateMapStatus();
+      }
+    };
+
+    const zoomOutCenter = () => {
+      const newScale = Math.max(zoomConfig.value.min, scale.value - zoomConfig.value.step);
+      if (newScale !== scale.value) {
+        const newPosition = getPositionForScale(newScale);
+        scale.value = newScale;
+        position.value = newPosition;
+        updateMapStatus();
+      }
+    };
+
+    const resetView = () => {
+      const initialPreset = zoomPresets.value[0];
+      scale.value = initialPreset.scale;
+      position.value = { ...initialPreset.position };
+      updateMapStatus();
+    };
+
+    const zoomToPoint = (pointX, pointY, targetScale = null) => {
+      const targetZoom = targetScale || zoomConfig.value.max;
+      const clampedZoom = Math.max(zoomConfig.value.min, Math.min(zoomConfig.value.max, targetZoom));
       
-      const container = mapContent.value.parentElement;
-      if (!container) return;
+      const startScale = scale.value;
+      const startPosition = { ...position.value };
+      const targetPosition = getPositionForScale(clampedZoom);
       
-      position.value.x = -3826;
-      position.value.y = -1383;
+      const duration = 300;
+      const startTime = performance.now();
       
+      const animateZoom = (currentTime) => {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        const easeProgress = 1 - Math.pow(1 - progress, 3);
+        
+        scale.value = startScale + (clampedZoom - startScale) * easeProgress;
+        
+        // Интерполируем позицию на основе текущего масштаба
+        const currentPosition = getPositionForScale(scale.value);
+        position.value = currentPosition;
+        
+        if (progress < 1) {
+          requestAnimationFrame(animateZoom);
+        } else {
+          // Финальная корректировка
+          scale.value = clampedZoom;
+          position.value = targetPosition;
+          updateMapStatus();
+        }
+      };
+      
+      requestAnimationFrame(animateZoom);
+    };
+
+    const setZoom = (newScale) => {
+      const clampedScale = Math.max(zoomConfig.value.min, Math.min(zoomConfig.value.max, newScale));
+      const newPosition = getPositionForScale(clampedScale);
+      scale.value = clampedScale;
+      position.value = newPosition;
       updateMapStatus();
     };
 
@@ -834,81 +956,8 @@ export default {
       }
     };
 
-    const zoomInCenter = () => {
-      const newScale = scale.value * (1 + zoomConfig.value.step);
-      if (newScale <= zoomConfig.value.max) {
-        scale.value = newScale;
-        updateMapStatus();
-      }
-    };
-
-    const zoomOutCenter = () => {
-      const newScale = scale.value / (1 + zoomConfig.value.step);
-      if (newScale >= zoomConfig.value.min) {
-        scale.value = newScale;
-        updateMapStatus();
-      }
-    };
-
-    const resetView = () => {
-      scale.value = zoomConfig.value.initial;
-      centerMap();
-      updateMapStatus();
-    };
-
-    const zoomToPoint = (pointX, pointY, targetScale = null) => {
-      const targetZoom = targetScale || zoomConfig.value.initial;
-      
-      const startScale = scale.value;
-      const startX = position.value.x;
-      const startY = position.value.y;
-      
-      const container = mapContent.value?.parentElement;
-      if (!container) return;
-      
-      const containerWidth = container.clientWidth;
-      const containerHeight = container.clientHeight;
-      
-      const centerX = containerWidth / 2;
-      const centerY = containerHeight / 2;
-      
-      const targetX = centerX - (pointX * targetZoom);
-      const targetY = centerY - (pointY * targetZoom);
-      
-      const duration = 300;
-      const startTime = performance.now();
-      
-      const animateZoom = (currentTime) => {
-        const elapsed = currentTime - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        
-        const easeProgress = 1 - Math.pow(1 - progress, 3);
-        
-        scale.value = startScale + (targetZoom - startScale) * easeProgress;
-        position.value.x = startX + (targetX - startX) * easeProgress;
-        position.value.y = startY + (targetY - startY) * easeProgress;
-        
-        if (progress < 1) {
-          requestAnimationFrame(animateZoom);
-        }
-      };
-      
-      requestAnimationFrame(animateZoom);
-      updateMapStatus();
-    };
-
-    const setZoom = (newScale) => {
-      scale.value = Math.max(zoomConfig.value.min, Math.min(zoomConfig.value.max, newScale));
-      centerMap();
-      updateMapStatus();
-    };
-
     const getZoomConfig = () => {
       return { ...zoomConfig.value };
-    };
-
-    const updateMapStatus = () => {
-      console.log(`Масштаб: ${Math.round(scale.value * 100)}%`);
     };
 
     // ОБРАБОТЧИКИ ЖЕСТОВ ДЛЯ МАСШТАБИРОВАНИЯ
@@ -940,26 +989,14 @@ export default {
           touch1.clientY - touch2.clientY
         );
         
-        const midX = (touch1.clientX + touch2.clientX) / 2;
-        const midY = (touch1.clientY + touch2.clientY) / 2;
-        
-        // Вычисляем точку в координатах карты
-        const rect = mapContent.value?.getBoundingClientRect();
-        if (rect) {
-          const pointX = (midX - rect.left - position.value.x) / scale.value;
-          const pointY = (midY - rect.top - position.value.y) / scale.value;
-          
-          touchStart.value = {
-            x: midX,
-            y: midY,
-            distance: distance,
-            scale: scale.value,
-            positionX: position.value.x,
-            positionY: position.value.y,
-            pointX: pointX,
-            pointY: pointY
-          };
-        }
+        touchStart.value = {
+          x: 0,
+          y: 0,
+          distance: distance,
+          scale: scale.value,
+          positionX: position.value.x,
+          positionY: position.value.y
+        };
         
         event.preventDefault();
       }
@@ -967,7 +1004,6 @@ export default {
 
     const onTouchMove = (event) => {
       if (isPinching.value && event.touches.length === 2) {
-        // Обработка жеста pinch-to-zoom
         const touch1 = event.touches[0];
         const touch2 = event.touches[1];
         
@@ -976,33 +1012,24 @@ export default {
           touch1.clientY - touch2.clientY
         );
         
-        if (touchStart.value.distance > 0 && touchStart.value.pointX !== undefined) {
+        if (touchStart.value.distance > 0) {
           const scaleFactor = currentDistance / touchStart.value.distance;
-          const newScale = Math.max(zoomConfig.value.min, Math.min(zoomConfig.value.max, touchStart.value.scale * scaleFactor));
+          const rawNewScale = touchStart.value.scale * scaleFactor;
+          const newScale = Math.max(zoomConfig.value.min, Math.min(zoomConfig.value.max, rawNewScale));
           
-          // Вычисляем смещение для сохранения точки под пальцами
-          const rect = mapContent.value?.getBoundingClientRect();
-          if (rect) {
-            const midX = (touch1.clientX + touch2.clientX) / 2;
-            const midY = (touch1.clientY + touch2.clientY) / 2;
-            
-            const deltaScale = newScale - touchStart.value.scale;
-            const targetX = touchStart.value.positionX - (midX - touchStart.value.x) * deltaScale / newScale;
-            const targetY = touchStart.value.positionY - (midY - touchStart.value.y) * deltaScale / newScale;
-            
-            scale.value = newScale;
-            position.value.x = targetX;
-            position.value.y = targetY;
-          }
+          // Плавно изменяем позицию в соответствии с масштабом
+          const newPosition = getPositionForScale(newScale);
+          
+          scale.value = newScale;
+          position.value = newPosition;
           
           updateMapStatus();
         }
         
         event.preventDefault();
       } else if (isDragging.value && event.touches.length === 1) {
-        // Обработка перемещения с увеличенной скоростью
         const touch = event.touches[0];
-        const deltaX = (touch.clientX - lastTouch.value.x) * 1.5; // Увеличиваем скорость в 1.5 раза
+        const deltaX = (touch.clientX - lastTouch.value.x) * 1.5;
         const deltaY = (touch.clientY - lastTouch.value.y) * 1.5;
         
         position.value.x += deltaX;
@@ -1317,11 +1344,11 @@ export default {
     const getQuickSearchItems = (tab) => {
       switch (tab) {
         case 'audience':
-          return ['101', '201', '301', '401', '102', '202'];
+          return ['228', 'туалет', '226', 'буфет'];
         case 'group':
-          return ['ИС-11', 'ПО-21', 'УИТ-31', 'Э-41'];
+          return ['ПИ-401', 'ПИ-301', 'ИСТ-401', 'ИСТ-101'];
         case 'teacher':
-          return ['Иванов', 'Петров', 'Сидоров'];
+          return ['Казаков', 'Кондратенко', 'Кулачков'];
         default:
           return [];
       }
@@ -1493,7 +1520,7 @@ export default {
 
     const getAudienceStrokeColor = (audience) => {
       if (isSearchResult(audience)) {
-        return '#10b981'; // Яркий зеленый для найденных аудиторий
+        return '#10b981';
       }
       return getAudienceColor(audience.audience_type);
     };
@@ -1597,7 +1624,7 @@ export default {
     const centerToAudience = (audience) => {
       const audienceCenterX = audience.x + audience.width / 2;
       const audienceCenterY = audience.y + audience.height / 2;
-      zoomToPoint(audienceCenterX, audienceCenterY, zoomConfig.value.initial * 1.5);
+      zoomToPoint(audienceCenterX, audienceCenterY, zoomConfig.value.initial);
     };
 
     const searchGroups = async () => {
@@ -1747,6 +1774,9 @@ export default {
       closePanel();
     };
 
+    // Добавить состояние загрузки для лучшего UX
+    const isLoadingModalData = ref(false);
+    
     const openModal = async (audience) => {
       currentAudience.value = audience;
       currentImages.value = [
@@ -1755,21 +1785,37 @@ export default {
         audience.image3
       ].filter(img => img);
       
-      const scheduleAllowedTypes = ['lecture', 'computer', 'study'];
-      if (scheduleAllowedTypes.includes(audience.audience_type)) {
-        await fetchSchedule(audience.id);
-      } else {
-        schedule.value = [];
-      }
-      
-      if (audience.audience_type === 'cafe') {
-        await fetchBuffetMenu();
-      }
-      
+      // Показываем модальное окно сразу
       showModal.value = true;
-      activeModalTab.value = 'info';
+      activeModalTab.value = 'schedule';
+      
+      // Показываем индикатор загрузки для дополнительных данных
+      isLoadingModalData.value = true;
+      
+      try {
+        // Параллельная загрузка данных
+        const promises = [];
+        
+        const scheduleAllowedTypes = ['lecture', 'computer', 'study'];
+        if (scheduleAllowedTypes.includes(audience.audience_type)) {
+          promises.push(fetchSchedule(audience.id));
+        }
+        
+        if (audience.audience_type === 'cafe') {
+          promises.push(fetchBuffetMenu());
+        }
+        
+        // Ждем завершения всех запросов
+        if (promises.length > 0) {
+          await Promise.all(promises);
+        }
+      } catch (error) {
+        console.error('Ошибка загрузки данных модального окна:', error);
+      } finally {
+        isLoadingModalData.value = false;
+      }
     };
-
+    
     const closeModal = () => {
       showModal.value = false;
     };
@@ -2274,13 +2320,10 @@ export default {
       await fetchGroups();
       await fetchTeachers();
       
-      // Устанавливаем начальный масштаб
+      // Устанавливаем начальный масштаб и позицию
       scale.value = zoomConfig.value.initial;
-      
-      // Центрируем карту после загрузки DOM
-      nextTick(() => {
-        centerMap();
-      });
+      // ВАЖНО: Вызываем centerMap() для установки правильной начальной позиции
+      centerMap();
       
       // Добавляем обработчик изменения размера окна
       window.addEventListener('resize', onWindowResize);
@@ -2385,6 +2428,7 @@ export default {
       viewModeText,
       
       // Refs
+      zoomPresets,
       mapContent,
       svgElement,
       threeDScene,
@@ -2455,6 +2499,7 @@ export default {
       getAudienceTypeName,
       getAudienceIcon,
       getAudienceColor,
+      getCurrentZoomPreset,
       getCategoryName,
       formatPrice,
       startPanelDrag,
