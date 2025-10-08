@@ -438,22 +438,6 @@
               </div>
             </div>
 
-            <div class="filter-section">
-              <h4>Дополнительно</h4>
-              <div class="filter-options">
-                <label class="filter-option">
-                  <input type="checkbox" v-model="showOnlyAvailable" />
-                  <span class="checkmark"></span>
-                  <span>Только доступные</span>
-                </label>
-                <label class="filter-option">
-                  <input type="checkbox" v-model="showEquipment" />
-                  <span class="checkmark"></span>
-                  <span>С оборудованием</span>
-                </label>
-              </div>
-            </div>
-
             <div class="filter-actions">
               <button @click="resetFilters" class="filter-btn secondary">
                 Сбросить
@@ -628,18 +612,6 @@
                 </div>
               </div>
             </div>
-          </div>
-
-          <!-- Кнопки действий -->
-          <div class="modal-actions">
-            <button class="action-btn secondary" @click="shareAudience">
-              <i class="fas fa-share-alt"></i>
-              Поделиться
-            </button>
-            <button class="action-btn primary" @click="navigateToAudience">
-              <i class="fas fa-route"></i>
-              Построить маршрут
-            </button>
           </div>
         </div>
       </div>
@@ -2513,7 +2485,6 @@ export default {
 </script>
 
 <style scoped>
-/* Базовые стили для мобильных */
 .mobile-container {
   position: fixed;
   top: 0;
@@ -2599,16 +2570,6 @@ export default {
   background: linear-gradient(135deg, #4361ee, #3a0ca3);
   border-radius: 2px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-origin: center;
-}
-
-.burger-menu span {
-  display: block;
-  height: 2px;
-  width: 100%;
-  background: #2d3748;
-  border-radius: 1px;
-  transition: all 0.3s ease;
   transform-origin: center;
 }
 
@@ -2709,7 +2670,8 @@ export default {
   bottom: 0;
   width: 85%;
   max-width: 320px;
-  background: white;
+  background: #1a202c;
+  color: white;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2730,7 +2692,7 @@ export default {
 
 .menu-header {
   padding: 20px;
-  background: linear-gradient(135deg, #4361ee, #3a0ca3);
+  background: linear-gradient(135deg, #3a0ca3, #1a202c);
   color: white;
 }
 
@@ -2805,7 +2767,7 @@ export default {
   align-items: center;
   gap: 8px;
   padding: 16px 12px;
-  background: #f8fafc;
+  background: rgba(255, 255, 255, 0.1);
   border: 2px solid transparent;
   border-radius: 16px;
   transition: all 0.2s ease;
@@ -2831,19 +2793,19 @@ export default {
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  background: white;
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #4361ee;
+  color: #ffffff;
   font-size: 18px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .menu-label {
   font-size: 13px;
   font-weight: 600;
   text-align: center;
+  color: #ffffff;
 }
 
 .menu-btn {
@@ -2852,10 +2814,10 @@ export default {
   justify-content: space-between;
   width: 100%;
   padding: 16px;
-  background: #f8fafc;
+  background: rgba(255, 255, 255, 0.1);
   border: none;
   border-radius: 16px;
-  color: #2d3748;
+  color: #ffffff;
   font-size: 16px;
   font-weight: 500;
   transition: all 0.2s ease;
@@ -2885,7 +2847,6 @@ export default {
   font-weight: 600;
 }
 
-/* Location controls */
 .location-controls {
   display: flex;
   flex-direction: column;
@@ -2912,10 +2873,10 @@ export default {
 
 .location-chip {
   padding: 8px 16px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 20px;
-  background: white;
-  color: #4a5568;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
@@ -2928,41 +2889,9 @@ export default {
   border-color: #4361ee;
 }
 
-/* Action grid */
-.action-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-.action-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 12px;
-  background: #f8fafc;
-  border: none;
-  border-radius: 16px;
-  color: #4a5568;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.action-btn:active {
-  transform: scale(0.98);
-}
-
-.action-btn i {
-  font-size: 18px;
-  color: #4361ee;
-}
-
 .menu-footer {
   padding: 20px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .menu-footer-btn {
@@ -2978,6 +2907,8 @@ export default {
   font-weight: 500;
   transition: all 0.2s ease;
   cursor: pointer;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
 .menu-footer-btn:active {
@@ -3002,8 +2933,8 @@ export default {
 }
 
 .floating-btn {
-  width: 56px;
-  height: 56px;
+  width: 50px;
+  height: 50px;
   border-radius: 28px;
   border: none;
   display: flex;
@@ -3023,7 +2954,7 @@ export default {
 
 .main-btn.active {
   transform: rotate(135deg);
-  background: #f94144;
+  background: #6e0f10b3;
 }
 
 .action-btn {
@@ -3101,9 +3032,9 @@ export default {
   position: relative;
   flex: 1;
   overflow: hidden;
-  background-color: #1a202cfa;
-  width: 700px;
-  height: 1440px;
+  background-color: #1a202c;
+  width: 100%;
+  height: 100%;
 }
 
 .map-content {
@@ -3123,499 +3054,6 @@ export default {
   pointer-events: none;
 }
 
-/* Аудитории на карте */
-.audience-rect {
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
-  pointer-events: all;
-}
-
-.audience-rect:hover {
-  stroke-width: 1.5;
-}
-
-.audience-rect.highlighted {
-  stroke-width: 3;
-  animation: pulse 2s infinite;
-}
-
-.audience-rect.favorite {
-  stroke: #f94144;
-  stroke-width: 3;
-}
-
-.audience-rect.search-result {
-  stroke: #10b981;
-  stroke-width: 3;
-  animation: pulse-green 2s infinite;
-}
-
-.audience-label {
-  pointer-events: all;
-  cursor: pointer;
-  user-select: none;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-}
-
-@keyframes pulse {
-  0% { opacity: 0.6; }
-  50% { opacity: 1; }
-  100% { opacity: 0.6; }
-}
-
-@keyframes pulse-green {
-  0% { 
-    stroke: #10b981;
-    filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.5));
-  }
-  50% { 
-    stroke: #34d399;
-    filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.8));
-  }
-  100% { 
-    stroke: #10b981;
-    filter: drop-shadow(0 0 5px rgba(16, 185, 129, 0.5));
-  }
-}
-
-/* Улучшенный переключатель корпусов */
-.corpus-selector-enhanced {
-  position: absolute;
-  top: 80px;
-  left: 12px;
-  z-index: 50;
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  padding: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  min-width: 80px;
-}
-
-.corpus-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
-  color: #4361ee;
-  font-weight: 600;
-  font-size: 12px;
-  justify-content: center;
-}
-
-.corpus-header i {
-  font-size: 12px;
-}
-
-.corpus-buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.corpus-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px 10px;
-  border: 2px solid #1a202c;
-  border-radius: 12px;
-  background-color: #2d3748;
-  color:#4361ee;
-  font-weight: 600;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
-  min-width: 40px;
-  font-size: 14px;
-}
-
-.corpus-btn.active {
-  background: linear-gradient(135deg, #4361ee, #3a0ca3);
-  color: white;
-  border-color: #4361ee;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
-}
-
-.corpus-btn:active {
-  transform: scale(0.95);
-}
-
-.corpus-number {
-  font-size: 14px;
-  font-weight: 700;
-}
-
-/* Горизонтальный переключатель этажей */
-.floor-selector-horizontal {
-  position: absolute;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 50;
-  backdrop-filter: blur(20px);
-  border-radius: 20px;
-  padding: 12px 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  min-width: 200px;
-}
-
-.floor-buttons {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
-
-.floor-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 10px;
-  border: 2px solid #1a202c;
-  border-radius: 12px;
-  background-color: #2d3748;
-  color:#4361ee;
-  font-weight: 600;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
-  min-width: 50px;
-  justify-content: center
-}
-
-.floor-btn.active {
-  background: linear-gradient(135deg, #4361ee, #3a0ca3);
-  color: white;
-  border-color: #4361ee;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(67, 97, 238, 0.3);
-}
-
-.floor-btn:active {
-  transform: scale(0.95);
-}
-
-.floor-icon {
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(67, 97, 238, 0.1);
-  border-radius: 6px;
-  color: #4361ee;
-  transition: all 0.3s ease;
-  font-size: 10px;
-}
-
-.floor-btn.active .floor-icon {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-}
-
-.floor-number {
-  font-size: 12px;
-  font-weight: 700;
-}
-
-/* Кнопки действий на карте (справа сверху) */
-.map-actions-top-right {
-  position: absolute;
-  top: 80px;
-  right: 12px;
-  z-index: 50;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  padding: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.map-action-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  border: 2px solid #1a202c;
-  background-color: #2d3748;
-  color:#4361ee;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
-}
-
-.map-action-btn:active {
-  background: linear-gradient(135deg, #4361ee, #3a0ca3);
-  border-color: #4361ee;
-  transform: scale(0.9);
-}
-
-.map-action-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.map-status {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 8px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  backdrop-filter: blur(10px);
-  z-index: 50;
-}
-
-.scale-indicator {
-  font-weight: 500;
-}
-
-/* 3D контейнер */
-.three-d-container {
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
-
-.three-d-scene {
-  width: 100%;
-  height: 100%;
-}
-
-/* Текущее местоположение */
-.current-location {
-  position: absolute;
-  bottom: 100px;
-  left: 20px;
-  z-index: 50;
-}
-
-.location-chip {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: white;
-  color: #4a5568;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.location-chip.active {
-  background: #4361ee;
-  color: white;
-  border-color: #4361ee;
-}
-
-/* Action grid */
-.action-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-.action-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 12px;
-  background: #f8fafc;
-  border: none;
-  border-radius: 16px;
-  color: #4a5568;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.action-btn:active {
-  transform: scale(0.98);
-}
-
-.action-btn i {
-  font-size: 18px;
-  color: #4361ee;
-}
-
-.menu-footer {
-  padding: 20px;
-  border-top: 1px solid #f1f5f9;
-}
-
-.menu-footer-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 16px;
-  border: none;
-  border-radius: 16px;
-  font-size: 16px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.menu-footer-btn:active {
-  transform: scale(0.98);
-}
-
-.menu-footer-btn.primary {
-  background: #4361ee;
-  color: white;
-}
-
-/* Плавающие кнопки */
-.floating-controls {
-  position: fixed;
-  bottom: 100px;
-  right: 20px;
-  z-index: 100;
-  display: flex;
-  flex-direction: column-reverse;
-  align-items: center;
-  gap: 12px;
-}
-
-.floating-btn {
-  width: 56px;
-  height: 56px;
-  border-radius: 28px;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
-}
-
-.main-btn {
-  background: #4361ee;
-  color: white;
-  font-size: 20px;
-  z-index: 10;
-}
-
-.main-btn.active {
-  transform: rotate(135deg);
-  background: #f94144;
-}
-
-.action-btn {
-  background: white;
-  color: #4361ee;
-  font-size: 18px;
-}
-
-.action-btn.active {
-  background: #4361ee;
-  color: white;
-}
-
-.floating-btn-enter-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.floating-btn-enter-to {
-  transform: scale(1) translateY(0);
-  opacity: 1;
-}
-
-.floating-btn-leave-active {
-  transition: all 0.2s cubic-bezier(0.4, 0, 1, 1);
-}
-
-.floating-btn-leave-to {
-  transform: scale(0) translateY(20px);
-  opacity: 0;
-}
-
-.btn-tooltip {
-  position: absolute;
-  right: 100%;
-  top: 50%;
-  transform: translateY(-50%);
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 12px;
-  white-space: nowrap;
-  margin-right: 12px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
-}
-
-.action-btn:hover .btn-tooltip {
-  opacity: 1;
-}
-
-/* Контейнер карты */
-.map-view-container {
-  position: fixed;
-  top: 60px;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  transition: all 0.3s ease;
-}
-
-.map-view-container.panel-open {
-  bottom: 300px;
-}
-
-.map-view-container.menu-open {
-  transform: translateX(85%);
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.1);
-}
-
-.map-container {
-  position: relative;
-  flex: 1;
-  overflow: hidden;
-  background-color: #1a202cfa;
-  width: 700px;
-  height: 1440px;
-}
-
-.map-content {
-  width: 2000px;
-  height: 1440px;
-  background-size: cover;
-  position: relative;
-  transition: background-image 0.5s ease-in-out;
-}
-
-.audience-svg {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
-/* Аудитории на карте */
 .audience-rect {
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -3672,7 +3110,7 @@ export default {
   }
 }
 
-/* Улучшенный переключатель корпусов */
+/* Переключатель корпусов */
 .corpus-selector-enhanced {
   position: absolute;
   top: 80px;
@@ -3697,10 +3135,6 @@ export default {
   justify-content: center;
 }
 
-.corpus-header i {
-  font-size: 12px;
-}
-
 .corpus-buttons {
   display: flex;
   flex-direction: column;
@@ -3715,7 +3149,7 @@ export default {
   border: 2px solid #1a202c;
   border-radius: 12px;
   background-color: #2d3748;
-  color:#4361ee;
+  color: #4361ee;
   font-weight: 600;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
@@ -3735,12 +3169,7 @@ export default {
   transform: scale(0.95);
 }
 
-.corpus-number {
-  font-size: 14px;
-  font-weight: 700;
-}
-
-/* Горизонтальный переключатель этажей */
+/* Переключатель этажей */
 .floor-selector-horizontal {
   position: absolute;
   bottom: 20px;
@@ -3770,12 +3199,12 @@ export default {
   border: 2px solid #1a202c;
   border-radius: 12px;
   background-color: #2d3748;
-  color:#4361ee;
+  color: #4361ee;
   font-weight: 600;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   min-width: 50px;
-  justify-content: center
+  justify-content: center;
 }
 
 .floor-btn.active {
@@ -3808,12 +3237,7 @@ export default {
   color: white;
 }
 
-.floor-number {
-  font-size: 12px;
-  font-weight: 700;
-}
-
-/* Кнопки действий на карте (справа сверху) */
+/* Кнопки действий на карте */
 .map-actions-top-right {
   position: absolute;
   top: 80px;
@@ -3835,7 +3259,7 @@ export default {
   border-radius: 10px;
   border: 2px solid #1a202c;
   background-color: #2d3748;
-  color:#4361ee;
+  color: #4361ee;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3848,11 +3272,6 @@ export default {
   background: linear-gradient(135deg, #4361ee, #3a0ca3);
   border-color: #4361ee;
   transform: scale(0.9);
-}
-
-.map-action-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .map-status {
@@ -3868,10 +3287,6 @@ export default {
   z-index: 50;
 }
 
-.scale-indicator {
-  font-weight: 500;
-}
-
 /* 3D контейнер */
 .three-d-container {
   width: 100%;
@@ -3884,57 +3299,56 @@ export default {
   height: 100%;
 }
 
-/* Текущее местоположение */
-.current-location {
+.audience-info-3d {
   position: absolute;
-  bottom: 100px;
-  left: 20px;
+  top: 80px;
+  left: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  max-width: 200px;
   z-index: 50;
 }
 
-.location-chip {
+.info-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: white;
-  color: #4a5568;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  cursor: pointer;
+  justify-content: space-between;
+  margin-bottom: 8px;
 }
 
-.location-chip.active {
-  background: #4361ee;
-  color: white;
-  border-color: #4361ee;
+.info-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #2d3748;
 }
 
-.location-chip i {
-  font-size: 12px;
-}
-
-.location-btn {
-  width: 50px;
-  height: 50px;
-  border-radius: 25px;
+.info-more-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
   border: none;
-  background: white;
-  color: #4361ee;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: #f1f5f9;
+  color: #718096;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 12px;
   transition: all 0.2s ease;
   cursor: pointer;
 }
 
-.location-btn:active {
-  transform: scale(0.95);
+.info-more-btn:active {
+  background: #4361ee;
+  color: white;
+}
+
+.audience-info-3d p {
+  margin: 0;
+  font-size: 14px;
+  color: #718096;
 }
 
 /* Нижние панели */
@@ -3943,9 +3357,9 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: white;
+  background: #1a202c;
   border-radius: 24px 24px 0 0;
-  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 0px 15px #3a0ca3;
   z-index: 200;
   max-height: 80vh;
   display: flex;
@@ -3960,14 +3374,10 @@ export default {
   cursor: grab;
 }
 
-.panel-handle:active {
-  cursor: grabbing;
-}
-
 .handle-bar {
   width: 40px;
   height: 4px;
-  background: #e2e8f0;
+  background: #3a0ca3;
   border-radius: 2px;
 }
 
@@ -3985,15 +3395,14 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 14px;
-  padding: 0px 20px;
+  padding: 16px 20px;
   border-bottom: 1px solid #f1f5f9;
 }
 
 .panel-title {
   font-size: 18px;
   font-weight: 600;
-  color: #2d3748;
+  color: #4361ee;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -4008,7 +3417,7 @@ export default {
   height: 36px;
   border-radius: 18px;
   border: none;
-  background: #f1f5f9;
+  background: rgba(0, 0, 0, 0.5);
   color: #718096;
   display: flex;
   align-items: center;
@@ -4019,6 +3428,7 @@ export default {
 
 .close-panel:active {
   transform: scale(0.95);
+  color: #4361ee;
 }
 
 .panel-content {
@@ -4030,7 +3440,7 @@ export default {
 /* Стили для панели поиска */
 .search-tabs {
   display: flex;
-  background: #f8fafc;
+  background: rgba(0, 0, 0, 0.5);
   border-radius: 12px;
   padding: 4px;
   margin-bottom: 20px;
@@ -4043,7 +3453,7 @@ export default {
   background: transparent;
   border-radius: 8px;
   color: #718096;
-  font-size: 14px;
+  font-size: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4053,8 +3463,8 @@ export default {
 }
 
 .search-tab.active {
-  background: white;
-  color: #4361ee;
+  background: #4361ee;
+  color: #ffffff;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
@@ -4067,17 +3477,17 @@ export default {
 .input-with-icon i {
   position: absolute;
   left: 16px;
-  color: #718096;
+  color: #4361ee;
   z-index: 1;
 }
 
 .search-input {
   width: 100%;
   padding: 16px 16px 16px 48px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #4361ee;
   border-radius: 12px;
   font-size: 16px;
-  background: white;
+  background: rgba(0, 0, 0, 0.5);
   transition: all 0.2s ease;
 }
 
@@ -4103,41 +3513,6 @@ export default {
   background: #f1f5f9;
 }
 
-/* Быстрый поиск */
-.quick-search {
-  margin-top: 20px;
-}
-
-.quick-search h4 {
-  font-size: 14px;
-  color: #718096;
-  margin-bottom: 12px;
-  font-weight: 600;
-}
-
-.quick-search-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.quick-search-chip {
-  padding: 8px 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  background: white;
-  color: #4a5568;
-  font-size: 14px;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.quick-search-chip:active {
-  background: #f7fafc;
-  transform: scale(0.95);
-}
-
-/* Результаты поиска */
 .search-results {
   margin-top: 20px;
 }
@@ -4197,11 +3572,6 @@ export default {
   display: block;
   font-size: 12px;
   color: #718096;
-}
-
-.result-item i:last-child {
-  color: #cbd5e0;
-  font-size: 12px;
 }
 
 /* Стили для истории */
@@ -4290,7 +3660,7 @@ export default {
 
 .filter-section h4 {
   font-size: 16px;
-  color: #2d3748;
+  color: #718096;
   margin-bottom: 12px;
   font-weight: 600;
 }
@@ -4306,10 +3676,10 @@ export default {
   align-items: center;
   gap: 6px;
   padding: 10px 16px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #4361ee;
   border-radius: 20px;
-  background: white;
-  color: #4a5568;
+  background: rgba(0, 0, 0, 0.5);
+  color: #4361ee;
   font-size: 14px;
   transition: all 0.2s ease;
   cursor: pointer;
@@ -4389,8 +3759,8 @@ export default {
 }
 
 .filter-btn.secondary {
-  background: #f8fafc;
-  color: #4a5568;
+  background: rgba(0, 0, 0, 0.5);
+  color: #4361ee;
 }
 
 .filter-btn.primary {
@@ -4432,12 +3802,11 @@ export default {
 .modal-header {
   position: sticky;
   top: 0;
-  background: white;
+  background: linear-gradient(135deg, #3a0ca3, #1a202c);
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 16px;
-  border-bottom: 1px solid #f1f5f9;
   z-index: 10;
 }
 
@@ -4446,12 +3815,13 @@ export default {
   height: 40px;
   border-radius: 20px;
   border: none;
-  background: #f1f5f9;
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
   cursor: pointer;
+  color: #ffffff;
 }
 
 .modal-close:active {
@@ -4463,7 +3833,7 @@ export default {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #2d3748;
+  color: #ffffff;
 }
 
 .modal-action {
@@ -4471,7 +3841,7 @@ export default {
   height: 40px;
   border-radius: 20px;
   border: none;
-  background: #f1f5f9;
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4493,6 +3863,7 @@ export default {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
+  background: #1a202c;
 }
 
 .audience-meta {
@@ -4507,8 +3878,9 @@ export default {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: #f8fafc;
+  background: rgba(0, 0, 0, 0.5);
   border-radius: 12px;
+  color: #ffffff;
 }
 
 .meta-item i {
@@ -4518,7 +3890,7 @@ export default {
 
 .modal-tabs {
   display: flex;
-  background: #f8fafc;
+  background: rgba(0, 0, 0, 0.5);
   border-radius: 12px;
   padding: 4px;
   margin-bottom: 20px;
@@ -4531,20 +3903,21 @@ export default {
   background: transparent;
   border-radius: 8px;
   color: #718096;
-  font-size: 12px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 700;
   transition: all 0.2s ease;
   cursor: pointer;
 }
 
 .modal-tab.active {
-  background: white;
+  background: #1a202c;
   color: #4361ee;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .tab-content {
   animation: fadeIn 0.3s ease;
+  color: #718096;
 }
 
 @keyframes fadeIn {
@@ -4629,10 +4002,10 @@ export default {
 .menu-category-btn {
   flex-shrink: 0;
   padding: 10px 16px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #4361ee;
   border-radius: 20px;
-  background: white;
-  color: #4a5568;
+  background:rgba(0, 0, 0, 0.5);
+  color: #4361ee;
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
@@ -4655,7 +4028,6 @@ export default {
   display: flex;
   gap: 12px;
   padding: 16px;
-  background: #f8fafc;
   border-radius: 12px;
 }
 
@@ -4728,7 +4100,8 @@ export default {
   padding: 12px 16px;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  background: white;
+  background: rgba(0, 0, 0, 0.5);
+  color: #ffffff;
   font-size: 16px;
   appearance: none;
   background-image: url("data:image/svg+xml;charset=US-ASCII,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'><path fill='%236B7280' d='M2 0L0 2h4zm0 5L0 3h4z'/></svg>");
@@ -4747,7 +4120,7 @@ export default {
   display: flex;
   gap: 12px;
   padding: 16px;
-  background: #f8fafc;
+  background: rgba(0, 0, 0, 0.5);
   border-radius: 12px;
 }
 
@@ -4765,7 +4138,7 @@ export default {
 .schedule-details strong {
   display: block;
   margin-bottom: 4px;
-  color: #2d3748;
+  color: #4361ee;
 }
 
 .schedule-details p {
@@ -4782,11 +4155,11 @@ export default {
 
 .group-tag {
   padding: 4px 8px;
-  background: white;
+  background: #1a202c;
   border-radius: 8px;
   font-size: 12px;
-  color: #4a5568;
-  border: 1px solid #e2e8f0;
+  color: #4361ee;
+  border: 1px solid #4361ee;
 }
 
 .modal-actions {
@@ -4801,17 +4174,17 @@ export default {
 
 .action-btn {
   flex: 1;
-  padding: 16px;
-  border: none;
-  border-radius: 12px;
-  font-size: 16px;
-  font-weight: 500;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
+  padding: 16px;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 500;
   transition: all 0.2s ease;
   cursor: pointer;
+  background: #1a202c;
 }
 
 .action-btn:active {
@@ -4819,7 +4192,7 @@ export default {
 }
 
 .action-btn.secondary {
-  background: #f8fafc;
+  background: #1a202c;
   color: #4a5568;
 }
 
@@ -4828,195 +4201,14 @@ export default {
   color: white;
 }
 
-/* Уведомления */
-.notifications {
-  position: fixed;
-  top: 80px;
-  right: 16px;
-  z-index: 10000;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-width: 320px;
-}
-
-.notification {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  border-left: 4px solid #4361ee;
-  animation: slideInRight 0.3s ease;
-}
-
-.notification.success {
-  border-left-color: #48bb78;
-}
-
-.notification.warning {
-  border-left-color: #ed8936;
-}
-
-.notification.error {
-  border-left-color: #f56565;
-}
-
-.notification i {
-  color: #4361ee;
-  font-size: 16px;
-}
-
-.notification.success i {
-  color: #48bb78;
-}
-
-.notification.warning i {
-  color: #ed8936;
-}
-
-.notification.error i {
-  color: #f56565;
-}
-
-.notification-content {
-  flex: 1;
-}
-
-.notification-content p {
-  margin: 0;
-  font-size: 14px;
-  color: #2d3748;
-  font-weight: 500;
-}
-
-.notification-close {
-  background: none;
-  border: none;
-  color: #cbd5e0;
-  padding: 4px;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.notification-close:active {
-  background: #f1f5f9;
-}
-
-.notification-enter-active,
-.notification-leave-active {
-  transition: all 0.3s ease;
-}
-
-.notification-enter-from {
-  transform: translateX(100%);
-  opacity: 0;
-}
-
-.notification-leave-to {
-  transform: translateX(100%);
-  opacity: 0;
-}
-
-/* Анимации */
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.corpus-selector-enhanced,
-.floor-selector-horizontal,
-.map-actions-top-right {
-  animation: slideIn 0.3s ease-out;
-}
-
-@supports(padding: max(0px)) {
-  .mobile-nav {
-    padding-left: max(16px, env(safe-area-inset-left));
-    padding-right: max(16px, env(safe-area-inset-right));
-    padding-top: env(safe-area-inset-top);
-    height: calc(60px + env(safe-area-inset-top));
-  }
-  
-  .map-view-container {
-    top: calc(60px + env(safe-area-inset-top));
-  }
-  
-  .floor-selector-horizontal {
-    bottom: max(20px, env(safe-area-inset-bottom) + 20px);
-  }
-  
-  .floating-controls {
-    bottom: max(100px, env(safe-area-inset-bottom) + 20px);
-    right: max(20px, env(safe-area-inset-right) + 20px);
-  }
-  
-  .bottom-panel {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  
-  .modal-actions {
-    padding-bottom: calc(16px + env(safe-area-inset-bottom));
-  }
-}
-
-/* Улучшение touch-интерфейса */
-button {
-  min-height: 44px;
-  min-width: 44px;
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* Оптимизация производительности */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    transition: none !important;
-    animation: none !important;
-  }
-}
-
-/* Темная тема поддержка */
-@media (prefers-color-scheme: dark) {
-  .mobile-container {
-    background: #1a202c;
-  }
-  
-  .mobile-nav {
-    background: rgba(26, 32, 44, 0.98);
-    border-bottom-color: rgba(255, 255, 255, 0.08);
-  }
-  
-  .burger-menu span {
-    background: #e2e8f0;
-  }
-  
-  .nav-action-btn {
-    background: #2d3748;
-    color: #e2e8f0;
-  }
-  
-  .logo-text {
-    color: #e2e8f0;
-  }
-}
-
-/* Состояния загрузки и пустые состояния */
+/* Состояния загрузки */
 .loading-overlay {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
+  background: #1a202c;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5027,9 +4219,9 @@ button {
 .loading-content {
   text-align: center;
   padding: 30px;
-  background: white;
+  background: #1a202c;
   border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  color: #ffffff;
 }
 
 .loading-spinner-large {
@@ -5040,6 +4232,7 @@ button {
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 16px;
+  box-shadow: 0 4px 30px #3a0ca3;
 }
 
 .loading-progress {
@@ -5066,18 +4259,9 @@ button {
   color: #718096;
 }
 
-.loading-spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid transparent;
-  border-top: 2px solid #4361ee;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
 .empty-state {
   text-align: center;
-  padding: 40px 20px;
+  padding: 120px 20px;
   color: #718096;
   display: flex;
   flex-direction: column;
@@ -5096,11 +4280,6 @@ button {
   font-size: 16px;
   font-weight: 500;
   color: #4a5568;
-}
-
-.empty-state span {
-  font-size: 14px;
-  color: #a0aec0;
 }
 
 @keyframes spin {
@@ -5122,18 +4301,10 @@ button {
   justify-content: center;
 }
 
-.fullscreen-header {
+.close-btn {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: 20px;
-  z-index: 10;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.close-fullscreen {
+  top: 20px;
+  right: 20px;
   width: 44px;
   height: 44px;
   border-radius: 22px;
@@ -5146,9 +4317,10 @@ button {
   backdrop-filter: blur(10px);
   transition: all 0.2s ease;
   cursor: pointer;
+  z-index: 10;
 }
 
-.close-fullscreen:active {
+.close-btn:active {
   transform: scale(0.95);
 }
 
@@ -5158,100 +4330,14 @@ button {
   object-fit: contain;
 }
 
-.three-d-container {
-  width: 100%;
-  height: 100%;
-  position: relative;
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
 }
 
-.three-d-scene {
-  width: 100%;
-  height: 100%;
-}
-
-/* Индикатор загрузки */
-.loading-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 50;
-  backdrop-filter: blur(4px);
-}
-
-.loading-content {
-  text-align: center;
-  padding: 30px;
-  background: white;
-  border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-}
-
-.loading-spinner-large {
-  width: 50px;
-  height: 50px;
-  border: 3px solid #f1f5f9;
-  border-top: 3px solid #4361ee;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 16px;
-}
-
-.audience-info-3d {
-  position: absolute;
-  top: 80px;
-  left: 12px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  max-width: 200px;
-  z-index: 50;
-}
-
-.info-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.info-header h4 {
-  margin: 0;
-  font-size: 16px;
-  color: #2d3748;
-}
-
-.info-more-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 14px;
-  border: none;
-  background: #f1f5f9;
-  color: #718096;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.info-more-btn:active {
-  background: #4361ee;
-  color: white;
-}
-
-.audience-info-3d p {
-  margin: 0;
-  font-size: 14px;
-  color: #718096;
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 /* Адаптация для разных размеров экранов */
@@ -5311,7 +4397,7 @@ button {
   }
   
   .floating-controls {
-    bottom: max(100px, env(safe-area-inset-bottom) + 20px);
+    bottom: max(32px, env(safe-area-inset-bottom) + 20px);
     right: max(20px, env(safe-area-inset-right) + 20px);
   }
   
@@ -5348,10 +4434,6 @@ button {
   .mobile-nav {
     background: rgba(26, 32, 44, 0.98);
     border-bottom-color: rgba(255, 255, 255, 0.08);
-  }
-  
-  .burger-menu span {
-    background: #e2e8f0;
   }
   
   .nav-action-btn {
