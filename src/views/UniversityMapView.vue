@@ -846,7 +846,7 @@ export default {
       if (mapContent.value) {
         panzoomInstance = panzoom(mapContent.value, {
           maxZoom: 4,
-          minZoom: 0.5,
+          minZoom: 0.38,
           initialZoom: 0.6,
           bounds: true,
           boundsPadding: 0.6
@@ -1449,12 +1449,11 @@ export default {
 
 .map-content {
   width: 2000px;
-  height: 1440px;
+  height: 2000px;
   background-size: contain;
   background-repeat: no-repeat;
   background-position: center;
   position: relative;
-
 }
 
 #territory-svg {

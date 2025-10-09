@@ -3,7 +3,8 @@ import AdminView from '../views/AdminView.vue';
 import AuthView from '../views/AuthView.vue';
 import ProfileView from '../views/ProfileView.vue';
 import MainView from '../views/MainView.vue';
-import MMainView from '../views/MMainView.vue'; // Импортируем мобильную версию
+import MMainView from '../views/MMainView.vue';
+import MUniversityMapView from '../views/MUniversityMapView.vue';
 import UniversityMapView from '../views/UniversityMapView.vue';
 
 // Функция для определения мобильного устройства
@@ -16,13 +17,13 @@ const routes = [
   {
     path: '/',
     name: 'university-map',
-    component: UniversityMapView,
+    component: isMobileDevice() ? MUniversityMapView : UniversityMapView,
     meta: { requiresAuth: false }
   },
   {
     path: '/buildings',
     name: 'main',
-    component: isMobileDevice() ? MMainView : MainView, // Динамический выбор компонента
+    component: isMobileDevice() ? MMainView : MainView,
     meta: { requiresAuth: false }
   },
   {
@@ -80,7 +81,6 @@ const router = createRouter({
   routes
 });
 
-// Обработчик изменения размера окна (для переключения при повороте экрана)
 let currentIsMobile = isMobileDevice();
 
 const handleResize = () => {
@@ -88,11 +88,11 @@ const handleResize = () => {
   if (newIsMobile !== currentIsMobile) {
     currentIsMobile = newIsMobile;
     
-    // Обновляем маршрут, если находимся на странице buildings
     if (router.currentRoute.value.name === 'main') {
       router.replace({
         ...router.currentRoute.value,
-        component: newIsMobile ? MMainView : MainView
+        component: newIsMobile ? MMainView : MainView,
+        component: newIsMobile ? MUniversityMapView : UniversityMapView
       });
     }
   }
@@ -104,7 +104,6 @@ router.beforeEach(async (to, from, next) => {
   const token = localStorage.getItem('token');
   const user = JSON.parse(localStorage.getItem('user'));
 
-  // Обновляем компонент для маршрута buildings при каждой навигации
   if (to.name === 'main') {
     to.matched[0].components.default = isMobileDevice() ? MMainView : MainView;
   }

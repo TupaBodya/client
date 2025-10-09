@@ -1,5 +1,5 @@
 <template>
-  <div class="mobile-container">
+  <div class="mobile-container" :class="theme">
     <!-- Верхняя панель навигации -->
     <nav class="mobile-nav" :class="{ 'scrolled': isScrolled }">
       <div class="nav-header">
@@ -15,6 +15,9 @@
         </div>
         
         <div class="nav-actions">
+          <button class="theme-toggle" @click="toggleTheme" :title="themeButtonText">
+            <i class="fas" :class="themeIcon"></i>
+          </button>
           <button class="nav-action-btn" @click="toggleViewMode" :title="viewModeText">
             <i class="fas" :class="viewModeIcon"></i>
           </button>
@@ -597,7 +600,7 @@
                     </div>
                     <div class="schedule-details">
                       <strong>{{ item.name_lesson }}</strong>
-                      <p>{{ item.surname }} {{ item.name }} {{ item.patronymic }}</p>
+                      <p>{{ item.name }} {{ item.surname }} {{ item.patronymic }}</p>
                       <div class="schedule-groups">
                         <span v-for="group in item.groups" :key="group.id" class="group-tag">
                           {{ group.name_group }}
@@ -671,6 +674,16 @@ export default {
     const favoriteMode = ref(false);
     const hasNotifications = ref(false);
     
+    // Тема
+    const theme = ref(localStorage.getItem('mobile-theme') || 'light');
+    const themeIcon = computed(() => theme.value === 'light' ? 'fa-moon' : 'fa-sun');
+    const themeButtonText = computed(() => theme.value === 'light' ? 'Тёмная тема' : 'Светлая тема');
+
+    const toggleTheme = () => {
+      theme.value = theme.value === 'light' ? 'dark' : 'light';
+      localStorage.setItem('mobile-theme', theme.value);
+    };
+
     // Поиск и фильтры
     const audienceSearch = ref('');
     const groupSearch = ref('');
@@ -783,14 +796,11 @@ export default {
 
     // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ МАСШТАБИРОВАНИЯ
     const getPositionForScale = (targetScale) => {
-      // Находим ближайшие пресеты для интерполяции
       const presets = [...zoomPresets.value].sort((a, b) => a.scale - b.scale);
       
-      // Если точное совпадение
       const exactMatch = presets.find(p => Math.abs(p.scale - targetScale) < 0.001);
       if (exactMatch) return { ...exactMatch.position };
       
-      // Находим границы для интерполяции
       let lower = null;
       let upper = null;
       
@@ -802,13 +812,11 @@ export default {
         }
       }
       
-      // Если за пределами диапазона, возвращаем крайние значения
       if (!lower || !upper) {
         if (targetScale <= presets[0].scale) return { ...presets[0].position };
         if (targetScale >= presets[presets.length - 1].scale) return { ...presets[presets.length - 1].position };
       }
       
-      // Линейная интерполяция
       const ratio = (targetScale - lower.scale) / (upper.scale - lower.scale);
       
       return {
@@ -891,14 +899,12 @@ export default {
         
         scale.value = startScale + (clampedZoom - startScale) * easeProgress;
         
-        // Интерполируем позицию на основе текущего масштаба
         const currentPosition = getPositionForScale(scale.value);
         position.value = currentPosition;
         
         if (progress < 1) {
           requestAnimationFrame(animateZoom);
         } else {
-          // Финальная корректировка
           scale.value = clampedZoom;
           position.value = targetPosition;
           updateMapStatus();
@@ -935,7 +941,6 @@ export default {
     // ОБРАБОТЧИКИ ЖЕСТОВ ДЛЯ МАСШТАБИРОВАНИЯ
     const onTouchStart = (event) => {
       if (event.touches.length === 1) {
-        // Одиночное касание - перемещение
         const touch = event.touches[0];
         touchStart.value = { 
           x: touch.clientX, 
@@ -949,7 +954,6 @@ export default {
         isDragging.value = true;
         isPinching.value = false;
       } else if (event.touches.length === 2) {
-        // Два пальца - масштабирование
         isPinching.value = true;
         isDragging.value = false;
         
@@ -989,7 +993,6 @@ export default {
           const rawNewScale = touchStart.value.scale * scaleFactor;
           const newScale = Math.max(zoomConfig.value.min, Math.min(zoomConfig.value.max, rawNewScale));
           
-          // Плавно изменяем позицию в соответствии с масштабом
           const newPosition = getPositionForScale(newScale);
           
           scale.value = newScale;
@@ -1356,7 +1359,6 @@ export default {
       switch (result.type) {
         case 'audience':
           centerToAudience(result.data);
-          // Закрываем панель поиска после выбора результата
           closePanel();
           break;
         case 'group':
@@ -1552,21 +1554,17 @@ export default {
       if (audienceSearch.value.trim().length >= 3) {
         addToSearchHistory(audienceSearch.value, 'Аудитория');
         
-        // Очищаем предыдущие результаты
         searchResultAudiences.value.clear();
         
-        // Находим все аудитории по поиску
         const foundAudiences = audiences.value.filter(aud => 
           aud.num_audiences.toLowerCase().includes(audienceSearch.value.toLowerCase())
         );
         
         if (foundAudiences.length > 0) {
-          // Добавляем найденные аудитории в результаты
           foundAudiences.forEach(aud => {
             searchResultAudiences.value.add(aud.id);
           });
           
-          // Если есть результаты на текущем этаже - центрируем на первом
           const currentFloorResults = foundAudiences.filter(aud => 
             aud.corpus === selectedCorpus.value && aud.floor === selectedFloor.value
           );
@@ -1574,18 +1572,15 @@ export default {
           if (currentFloorResults.length > 0) {
             centerToAudience(currentFloorResults[0]);
           } else {
-            // Если на текущем этаже нет результатов, переключаемся на этаж первого найденного
             const firstResult = foundAudiences[0];
             selectedCorpus.value = firstResult.corpus;
             selectedFloor.value = firstResult.floor;
             
-            // Центрируем после смены этажа
             nextTick(() => {
               centerToAudience(firstResult);
             });
           }
           
-          // Очищаем поисковую строку после нахождения результатов
           audienceSearch.value = '';
         }
       } else {
@@ -1620,7 +1615,6 @@ export default {
           }
         });
         
-        // Если есть результаты, переключаемся на первый этаж с результатами
         if (groupSchedule.length > 0) {
           const firstResult = groupSchedule[0];
           if (firstResult.audience_id) {
@@ -1637,7 +1631,6 @@ export default {
         }
         
         addToSearchHistory(groupSearch.value, 'Группа');
-        // Очищаем поисковую строку после нахождения результатов
         groupSearch.value = '';
       } catch (error) {
         console.error('Ошибка поиска по группам:', error);
@@ -1667,7 +1660,6 @@ export default {
           }
         });
         
-        // Если есть результаты, переключаемся на первый этаж с результатами
         if (teacherSchedule.length > 0) {
           const firstResult = teacherSchedule[0];
           if (firstResult.audience_id) {
@@ -1684,7 +1676,6 @@ export default {
         }
         
         addToSearchHistory(teacherSearch.value, 'Преподаватель');
-        // Очищаем поисковую строку после нахождения результатов
         teacherSearch.value = '';
       } catch (error) {
         console.error('Ошибка поиска по преподавателям:', error);
@@ -1757,15 +1748,12 @@ export default {
         audience.image3
       ].filter(img => img);
       
-      // Показываем модальное окно сразу
       showModal.value = true;
       activeModalTab.value = 'schedule';
       
-      // Показываем индикатор загрузки для дополнительных данных
       isLoadingModalData.value = true;
       
       try {
-        // Параллельная загрузка данных
         const promises = [];
         
         const scheduleAllowedTypes = ['lecture', 'computer', 'study'];
@@ -1777,7 +1765,6 @@ export default {
           promises.push(fetchBuffetMenu());
         }
         
-        // Ждем завершения всех запросов
         if (promises.length > 0) {
           await Promise.all(promises);
         }
@@ -2292,15 +2279,11 @@ export default {
       await fetchGroups();
       await fetchTeachers();
       
-      // Устанавливаем начальный масштаб и позицию
       scale.value = zoomConfig.value.initial;
-      // ВАЖНО: Вызываем centerMap() для установки правильной начальной позиции
       centerMap();
       
-      // Добавляем обработчик изменения размера окна
       window.addEventListener('resize', onWindowResize);
       
-      // Обработка скролла для навигационной панели
       const handleScroll = () => {
         isScrolled.value = window.scrollY > 10;
       };
@@ -2352,6 +2335,9 @@ export default {
       user,
       hoveredAudience3D,
       viewMode,
+      theme,
+      themeIcon,
+      themeButtonText,
       showModal,
       showFullscreen,
       showMobileMenu,
@@ -2478,22 +2464,65 @@ export default {
       openModal,
       closeModal,
       openFullscreen,
-      closeFullscreen
+      closeFullscreen,
+      toggleTheme
     };
   }
 };
 </script>
 
 <style scoped>
+/* CSS переменные для тем */
+.mobile-container.light {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --text-primary: #1a202c;
+  --text-secondary: #4a5568;
+  --text-tertiary: #718096;
+  --accent-primary: #4361ee;
+  --accent-secondary: #3a0ca3;
+  --border-light: rgba(0, 0, 0, 0.08);
+  --border-medium: rgba(0, 0, 0, 0.12);
+  --shadow-light: rgba(0, 0, 0, 0.05);
+  --shadow-medium: rgba(0, 0, 0, 0.1);
+  --card-bg: rgba(255, 255, 255, 0.95);
+  --menu-bg: #ffffff;
+  --map-bg: #f8fafc;
+}
+
+.mobile-container.dark {
+  --bg-primary: #0f1419;
+  --bg-secondary: #1a202c;
+  --bg-tertiary: #2d3748;
+  --text-primary: #f7fafc;
+  --text-secondary: #e2e8f0;
+  --text-tertiary: #a0aec0;
+  --accent-primary: #4f46e5;
+  --accent-secondary: #6366f1;
+  --border-light: rgba(255, 255, 255, 0.08);
+  --border-medium: rgba(255, 255, 255, 0.12);
+  --shadow-light: rgba(0, 0, 0, 0.3);
+  --shadow-medium: rgba(0, 0, 0, 0.4);
+  --card-bg: rgba(26, 32, 44, 0.95);
+  --menu-bg: #1a202c;
+  --map-bg: #0f1419;
+}
+
 .mobile-container {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: #f8fafc;
+  background: var(--bg-primary);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.mobile-container * {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
 }
 
 /* Навигационная панель */
@@ -2503,18 +2532,18 @@ export default {
   left: 0;
   right: 0;
   height: 60px;
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--card-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid var(--border-light);
   z-index: 1000;
   padding: 0 16px;
   transition: all 0.3s ease;
 }
 
 .mobile-nav.scrolled {
-  background: rgba(255, 255, 255, 0.95);
-  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+  background: var(--card-bg);
+  box-shadow: 0 2px 20px var(--shadow-medium);
 }
 
 .nav-header {
@@ -2536,8 +2565,8 @@ export default {
   height: 40px;
   border-radius: 12px;
   border: none;
-  background: #f7fafc;
-  color: #4a5568;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2546,7 +2575,26 @@ export default {
 }
 
 .nav-action-btn:active {
-  background: #edf2f7;
+  background: var(--bg-secondary);
+  transform: scale(0.95);
+}
+
+.theme-toggle {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: none;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  font-size: 16px;
+}
+
+.theme-toggle:active {
+  background: var(--bg-secondary);
   transform: scale(0.95);
 }
 
@@ -2567,7 +2615,7 @@ export default {
   display: block;
   height: 3px;
   width: 100%;
-  background: linear-gradient(135deg, #4361ee, #3a0ca3);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   border-radius: 2px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   transform-origin: center;
@@ -2575,7 +2623,7 @@ export default {
 
 .burger-menu.active .burger-line:nth-child(1) {
   transform: rotate(45deg) translate(8px, 8px);
-  background: #4361ee;
+  background: var(--accent-primary);
 }
 
 .burger-menu.active .burger-line:nth-child(2) {
@@ -2585,7 +2633,7 @@ export default {
 
 .burger-menu.active .burger-line:nth-child(3) {
   transform: rotate(-45deg) translate(8px, -8px);
-  background: #4361ee;
+  background: var(--accent-primary);
 }
 
 .burger-menu:active {
@@ -2598,14 +2646,14 @@ export default {
   gap: 10px;
   font-weight: 700;
   font-size: 17px;
-  color: #1a202c;
+  color: var(--text-primary);
   cursor: pointer;
   flex: 1;
   justify-content: center;
 }
 
 .logo-text {
-  background: linear-gradient(135deg, #4361ee, #3a0ca3);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -2638,7 +2686,7 @@ export default {
   height: 8px;
   background: #f94144;
   border-radius: 50%;
-  border: 2px solid white;
+  border: 2px solid var(--card-bg);
 }
 
 .user-avatar-mini:active {
@@ -2670,8 +2718,8 @@ export default {
   bottom: 0;
   width: 85%;
   max-width: 320px;
-  background: #1a202c;
-  color: white;
+  background: var(--menu-bg);
+  color: var(--text-primary);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2692,8 +2740,8 @@ export default {
 
 .menu-header {
   padding: 20px;
-  background: linear-gradient(135deg, #3a0ca3, #1a202c);
-  color: white;
+  background: linear-gradient(135deg, var(--accent-secondary), var(--bg-tertiary));
+  color: var(--text-primary);
 }
 
 .menu-user {
@@ -2708,15 +2756,16 @@ export default {
   height: 60px;
   border-radius: 20px;
   object-fit: cover;
-  border: 3px solid rgba(255, 255, 255, 0.2);
+  border: 3px solid var(--border-light);
 }
 
 .user-avatar-large.guest {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--border-light);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 24px;
+  color: var(--text-primary);
 }
 
 .user-info {
@@ -2728,12 +2777,14 @@ export default {
   font-size: 18px;
   font-weight: 600;
   margin-bottom: 4px;
+  color: var(--text-primary);
 }
 
 .user-status {
   display: block;
   font-size: 14px;
   opacity: 0.8;
+  color: var(--text-primary);
 }
 
 .menu-content {
@@ -2748,7 +2799,7 @@ export default {
 
 .section-title {
   font-size: 14px;
-  color: #718096;
+  color: var(--text-tertiary);
   margin-bottom: 16px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -2767,11 +2818,12 @@ export default {
   align-items: center;
   gap: 8px;
   padding: 16px 12px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-tertiary);
   border: 2px solid transparent;
   border-radius: 16px;
   transition: all 0.2s ease;
   cursor: pointer;
+  color: var(--text-primary);
 }
 
 .menu-item:active {
@@ -2779,9 +2831,9 @@ export default {
 }
 
 .menu-item.active {
-  background: #4361ee;
+  background: var(--accent-primary);
   color: white;
-  border-color: #4361ee;
+  border-color: var(--accent-primary);
 }
 
 .menu-item.active .menu-icon {
@@ -2793,11 +2845,11 @@ export default {
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--bg-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 18px;
 }
 
@@ -2805,7 +2857,7 @@ export default {
   font-size: 13px;
   font-weight: 600;
   text-align: center;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .menu-btn {
@@ -2814,10 +2866,10 @@ export default {
   justify-content: space-between;
   width: 100%;
   padding: 16px;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-tertiary);
   border: none;
   border-radius: 16px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 16px;
   font-weight: 500;
   transition: all 0.2s ease;
@@ -2839,7 +2891,7 @@ export default {
 }
 
 .btn-badge {
-  background: #4361ee;
+  background: var(--accent-primary);
   color: white;
   padding: 4px 8px;
   border-radius: 8px;
@@ -2861,7 +2913,7 @@ export default {
 
 .location-group label {
   font-size: 14px;
-  color: #718096;
+  color: var(--text-tertiary);
   font-weight: 500;
 }
 
@@ -2873,10 +2925,10 @@ export default {
 
 .location-chip {
   padding: 8px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--border-medium);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
@@ -2884,14 +2936,14 @@ export default {
 }
 
 .location-chip.active {
-  background: #4361ee;
+  background: var(--accent-primary);
   color: white;
-  border-color: #4361ee;
+  border-color: var(--accent-primary);
 }
 
 .menu-footer {
   padding: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--border-light);
 }
 
 .menu-footer-btn {
@@ -2907,8 +2959,8 @@ export default {
   font-weight: 500;
   transition: all 0.2s ease;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .menu-footer-btn:active {
@@ -2916,7 +2968,7 @@ export default {
 }
 
 .menu-footer-btn.primary {
-  background: #4361ee;
+  background: var(--accent-primary);
   color: white;
 }
 
@@ -2940,13 +2992,13 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px var(--shadow-medium);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
 }
 
 .main-btn {
-  background: #4361ee;
+  background: var(--accent-primary);
   color: white;
   font-size: 20px;
   z-index: 10;
@@ -2958,13 +3010,13 @@ export default {
 }
 
 .action-btn {
-  background: white;
-  color: #4361ee;
+  background: var(--card-bg);
+  color: var(--accent-primary);
   font-size: 18px;
 }
 
 .action-btn.active {
-  background: #4361ee;
+  background: var(--accent-primary);
   color: white;
 }
 
@@ -3025,14 +3077,14 @@ export default {
   transform: translateX(85%);
   border-radius: 20px;
   overflow: hidden;
-  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.1);
+  box-shadow: -10px 0 30px var(--shadow-medium);
 }
 
 .map-container {
   position: relative;
   flex: 1;
   overflow: hidden;
-  background-color: #1a202c;
+  background-color: var(--map-bg);
   width: 100%;
   height: 100%;
 }
@@ -3057,7 +3109,7 @@ export default {
 .audience-rect {
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+  filter: drop-shadow(0 2px 4px var(--shadow-light));
   pointer-events: all;
 }
 
@@ -3119,8 +3171,9 @@ export default {
   backdrop-filter: blur(20px);
   border-radius: 16px;
   padding: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px var(--shadow-medium);
+  border: 1px solid var(--border-light);
+  background: var(--card-bg);
   min-width: 80px;
 }
 
@@ -3129,7 +3182,7 @@ export default {
   align-items: center;
   gap: 6px;
   margin-bottom: 8px;
-  color: #4361ee;
+  color: var(--accent-primary);
   font-weight: 600;
   font-size: 12px;
   justify-content: center;
@@ -3146,10 +3199,10 @@ export default {
   align-items: center;
   justify-content: center;
   padding: 8px 10px;
-  border: 2px solid #1a202c;
+  border: 2px solid var(--bg-secondary);
   border-radius: 12px;
-  background-color: #2d3748;
-  color: #4361ee;
+  background-color: var(--bg-tertiary);
+  color: var(--accent-primary);
   font-weight: 600;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
@@ -3158,9 +3211,9 @@ export default {
 }
 
 .corpus-btn.active {
-  background: linear-gradient(135deg, #4361ee, #3a0ca3);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   color: white;
-  border-color: #4361ee;
+  border-color: var(--accent-primary);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
 }
@@ -3179,8 +3232,9 @@ export default {
   backdrop-filter: blur(20px);
   border-radius: 20px;
   padding: 12px 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px var(--shadow-medium);
+  border: 1px solid var(--border-light);
+  background: var(--card-bg);
   min-width: 200px;
 }
 
@@ -3196,10 +3250,10 @@ export default {
   align-items: center;
   gap: 4px;
   padding: 8px 10px;
-  border: 2px solid #1a202c;
+  border: 2px solid var(--bg-secondary);
   border-radius: 12px;
-  background-color: #2d3748;
-  color: #4361ee;
+  background-color: var(--bg-tertiary);
+  color: var(--accent-primary);
   font-weight: 600;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
@@ -3208,9 +3262,9 @@ export default {
 }
 
 .floor-btn.active {
-  background: linear-gradient(135deg, #4361ee, #3a0ca3);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   color: white;
-  border-color: #4361ee;
+  border-color: var(--accent-primary);
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(67, 97, 238, 0.3);
 }
@@ -3227,7 +3281,7 @@ export default {
   justify-content: center;
   background: rgba(67, 97, 238, 0.1);
   border-radius: 6px;
-  color: #4361ee;
+  color: var(--accent-primary);
   transition: all 0.3s ease;
   font-size: 10px;
 }
@@ -3249,17 +3303,18 @@ export default {
   backdrop-filter: blur(20px);
   border-radius: 16px;
   padding: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 8px 32px var(--shadow-medium);
+  border: 1px solid var(--border-light);
+  background: var(--card-bg);
 }
 
 .map-action-btn {
   width: 40px;
   height: 40px;
   border-radius: 10px;
-  border: 2px solid #1a202c;
-  background-color: #2d3748;
-  color: #4361ee;
+  border: 2px solid var(--bg-secondary);
+  background-color: var(--bg-tertiary);
+  color: var(--accent-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3269,8 +3324,8 @@ export default {
 }
 
 .map-action-btn:active {
-  background: linear-gradient(135deg, #4361ee, #3a0ca3);
-  border-color: #4361ee;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  border-color: var(--accent-primary);
   transform: scale(0.9);
 }
 
@@ -3303,11 +3358,11 @@ export default {
   position: absolute;
   top: 80px;
   left: 12px;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--card-bg);
   backdrop-filter: blur(20px);
   border-radius: 16px;
   padding: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 20px var(--shadow-medium);
   max-width: 200px;
   z-index: 50;
 }
@@ -3322,7 +3377,7 @@ export default {
 .info-header h4 {
   margin: 0;
   font-size: 16px;
-  color: #2d3748;
+  color: var(--text-primary);
 }
 
 .info-more-btn {
@@ -3330,8 +3385,8 @@ export default {
   height: 28px;
   border-radius: 14px;
   border: none;
-  background: #f1f5f9;
-  color: #718096;
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3341,14 +3396,14 @@ export default {
 }
 
 .info-more-btn:active {
-  background: #4361ee;
+  background: var(--accent-primary);
   color: white;
 }
 
 .audience-info-3d p {
   margin: 0;
   font-size: 14px;
-  color: #718096;
+  color: var(--text-tertiary);
 }
 
 /* Нижние панели */
@@ -3357,9 +3412,9 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: #1a202c;
+  background: var(--menu-bg);
   border-radius: 24px 24px 0 0;
-  box-shadow: 0 0px 15px #3a0ca3;
+  box-shadow: 0 0px 15px var(--accent-secondary);
   z-index: 200;
   max-height: 80vh;
   display: flex;
@@ -3377,7 +3432,7 @@ export default {
 .handle-bar {
   width: 40px;
   height: 4px;
-  background: #3a0ca3;
+  background: var(--accent-secondary);
   border-radius: 2px;
 }
 
@@ -3396,20 +3451,20 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .panel-title {
   font-size: 18px;
   font-weight: 600;
-  color: #4361ee;
+  color: var(--accent-primary);
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .panel-title i {
-  color: #4361ee;
+  color: var(--accent-primary);
 }
 
 .close-panel {
@@ -3417,8 +3472,8 @@ export default {
   height: 36px;
   border-radius: 18px;
   border: none;
-  background: rgba(0, 0, 0, 0.5);
-  color: #718096;
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3428,7 +3483,7 @@ export default {
 
 .close-panel:active {
   transform: scale(0.95);
-  color: #4361ee;
+  color: var(--accent-primary);
 }
 
 .panel-content {
@@ -3440,7 +3495,7 @@ export default {
 /* Стили для панели поиска */
 .search-tabs {
   display: flex;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--bg-tertiary);
   border-radius: 12px;
   padding: 4px;
   margin-bottom: 20px;
@@ -3452,7 +3507,7 @@ export default {
   border: none;
   background: transparent;
   border-radius: 8px;
-  color: #718096;
+  color: var(--text-tertiary);
   font-size: 12px;
   display: flex;
   align-items: center;
@@ -3463,9 +3518,9 @@ export default {
 }
 
 .search-tab.active {
-  background: #4361ee;
-  color: #ffffff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--accent-primary);
+  color: white;
+  box-shadow: 0 2px 4px var(--shadow-light);
 }
 
 .input-with-icon {
@@ -3477,23 +3532,24 @@ export default {
 .input-with-icon i {
   position: absolute;
   left: 16px;
-  color: #4361ee;
+  color: var(--accent-primary);
   z-index: 1;
 }
 
 .search-input {
   width: 100%;
   padding: 16px 16px 16px 48px;
-  border: 1px solid #4361ee;
+  border: 1px solid var(--accent-primary);
   border-radius: 12px;
   font-size: 16px;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   transition: all 0.2s ease;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #4361ee;
+  border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
 }
 
@@ -3502,7 +3558,7 @@ export default {
   right: 16px;
   background: none;
   border: none;
-  color: #cbd5e0;
+  color: var(--text-tertiary);
   padding: 4px;
   border-radius: 6px;
   transition: all 0.2s ease;
@@ -3510,7 +3566,7 @@ export default {
 }
 
 .clear-btn:active {
-  background: #f1f5f9;
+  background: var(--bg-secondary);
 }
 
 .search-results {
@@ -3526,7 +3582,7 @@ export default {
 
 .results-header span {
   font-size: 14px;
-  color: #718096;
+  color: var(--text-tertiary);
   font-weight: 500;
 }
 
@@ -3541,19 +3597,19 @@ export default {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: #f8fafc;
+  background: var(--bg-tertiary);
   border-radius: 12px;
   transition: all 0.2s ease;
   cursor: pointer;
 }
 
 .result-item:active {
-  background: #edf2f7;
+  background: var(--bg-secondary);
   transform: scale(0.98);
 }
 
 .result-item i:first-child {
-  color: #4361ee;
+  color: var(--accent-primary);
   width: 16px;
 }
 
@@ -3564,14 +3620,14 @@ export default {
 .result-title {
   display: block;
   font-weight: 500;
-  color: #2d3748;
+  color: var(--text-primary);
   margin-bottom: 2px;
 }
 
 .result-subtitle {
   display: block;
   font-size: 12px;
-  color: #718096;
+  color: var(--text-tertiary);
 }
 
 /* Стили для истории */
@@ -3585,7 +3641,7 @@ export default {
 .clear-history {
   background: none;
   border: none;
-  color: #718096;
+  color: var(--text-tertiary);
   font-size: 14px;
   padding: 8px;
   border-radius: 8px;
@@ -3594,7 +3650,7 @@ export default {
 }
 
 .clear-history:active {
-  background: #f1f5f9;
+  background: var(--bg-secondary);
 }
 
 .history-list {
@@ -3608,14 +3664,14 @@ export default {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: #f8fafc;
+  background: var(--bg-tertiary);
   border-radius: 12px;
   transition: all 0.2s ease;
   cursor: pointer;
 }
 
 .history-item:active {
-  background: #edf2f7;
+  background: var(--bg-secondary);
   transform: scale(0.98);
 }
 
@@ -3623,11 +3679,11 @@ export default {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: white;
+  background: var(--card-bg);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #4361ee;
+  color: var(--accent-primary);
   font-size: 14px;
 }
 
@@ -3638,19 +3694,19 @@ export default {
 .history-term {
   display: block;
   font-weight: 500;
-  color: #2d3748;
+  color: var(--text-primary);
   margin-bottom: 2px;
 }
 
 .history-type {
   display: block;
   font-size: 12px;
-  color: #718096;
+  color: var(--text-tertiary);
 }
 
 .history-time {
   font-size: 11px;
-  color: #a0aec0;
+  color: var(--text-tertiary);
 }
 
 /* Стили для фильтров */
@@ -3660,7 +3716,7 @@ export default {
 
 .filter-section h4 {
   font-size: 16px;
-  color: #718096;
+  color: var(--text-tertiary);
   margin-bottom: 12px;
   font-weight: 600;
 }
@@ -3676,65 +3732,23 @@ export default {
   align-items: center;
   gap: 6px;
   padding: 10px 16px;
-  border: 1px solid #4361ee;
+  border: 1px solid var(--accent-primary);
   border-radius: 20px;
-  background: rgba(0, 0, 0, 0.5);
-  color: #4361ee;
+  background: var(--bg-tertiary);
+  color: var(--accent-primary);
   font-size: 14px;
   transition: all 0.2s ease;
   cursor: pointer;
 }
 
 .filter-chip.active {
-  background: #4361ee;
+  background: var(--accent-primary);
   color: white;
-  border-color: #4361ee;
+  border-color: var(--accent-primary);
 }
 
 .filter-chip i {
   font-size: 12px;
-}
-
-.filter-options {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.filter-option {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  cursor: pointer;
-}
-
-.filter-option input {
-  display: none;
-}
-
-.checkmark {
-  width: 20px;
-  height: 20px;
-  border: 2px solid #e2e8f0;
-  border-radius: 6px;
-  position: relative;
-  transition: all 0.2s ease;
-}
-
-.filter-option input:checked + .checkmark {
-  background: #4361ee;
-  border-color: #4361ee;
-}
-
-.filter-option input:checked + .checkmark::after {
-  content: '✓';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
 }
 
 .filter-actions {
@@ -3759,12 +3773,12 @@ export default {
 }
 
 .filter-btn.secondary {
-  background: rgba(0, 0, 0, 0.5);
-  color: #4361ee;
+  background: var(--bg-tertiary);
+  color: var(--accent-primary);
 }
 
 .filter-btn.primary {
-  background: #4361ee;
+  background: var(--accent-primary);
   color: white;
 }
 
@@ -3775,7 +3789,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: white;
+  background: var(--bg-primary);
   z-index: 10000;
   overflow: hidden;
 }
@@ -3802,7 +3816,7 @@ export default {
 .modal-header {
   position: sticky;
   top: 0;
-  background: linear-gradient(135deg, #3a0ca3, #1a202c);
+  background: linear-gradient(135deg, var(--accent-secondary), var(--bg-tertiary));
   display: flex;
   align-items: center;
   gap: 16px;
@@ -3815,13 +3829,13 @@ export default {
   height: 40px;
   border-radius: 20px;
   border: none;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--bg-tertiary);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
   cursor: pointer;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .modal-close:active {
@@ -3833,7 +3847,7 @@ export default {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .modal-action {
@@ -3841,18 +3855,18 @@ export default {
   height: 40px;
   border-radius: 20px;
   border: none;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--bg-tertiary);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #cbd5e0;
+  color: var(--text-tertiary);
   transition: all 0.2s ease;
   cursor: pointer;
 }
 
 .modal-action.active {
   color: #f94144;
-  background: #fff5f5;
+  background: var(--card-bg);
 }
 
 .modal-action:active {
@@ -3863,7 +3877,7 @@ export default {
   flex: 1;
   overflow-y: auto;
   padding: 20px;
-  background: #1a202c;
+  background: var(--menu-bg);
 }
 
 .audience-meta {
@@ -3878,19 +3892,19 @@ export default {
   align-items: center;
   gap: 12px;
   padding: 12px;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--bg-tertiary);
   border-radius: 12px;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .meta-item i {
-  color: #4361ee;
+  color: var(--accent-primary);
   width: 16px;
 }
 
 .modal-tabs {
   display: flex;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--bg-tertiary);
   border-radius: 12px;
   padding: 4px;
   margin-bottom: 20px;
@@ -3902,7 +3916,7 @@ export default {
   border: none;
   background: transparent;
   border-radius: 8px;
-  color: #718096;
+  color: var(--text-tertiary);
   font-size: 11px;
   font-weight: 700;
   transition: all 0.2s ease;
@@ -3910,14 +3924,14 @@ export default {
 }
 
 .modal-tab.active {
-  background: #1a202c;
-  color: #4361ee;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: var(--bg-tertiary);
+  color: var(--accent-primary);
+  box-shadow: 0 2px 4px var(--shadow-light);
 }
 
 .tab-content {
   animation: fadeIn 0.3s ease;
-  color: #718096;
+  color: var(--text-secondary);
 }
 
 @keyframes fadeIn {
@@ -3978,11 +3992,11 @@ export default {
 
 .equipment-tag {
   padding: 6px 12px;
-  background: #f7fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-light);
   border-radius: 16px;
   font-size: 12px;
-  color: #4a5568;
+  color: var(--text-secondary);
 }
 
 /* Меню */
@@ -4002,10 +4016,10 @@ export default {
 .menu-category-btn {
   flex-shrink: 0;
   padding: 10px 16px;
-  border: 1px solid #4361ee;
+  border: 1px solid var(--accent-primary);
   border-radius: 20px;
-  background:rgba(0, 0, 0, 0.5);
-  color: #4361ee;
+  background: var(--bg-tertiary);
+  color: var(--accent-primary);
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
@@ -4013,9 +4027,9 @@ export default {
 }
 
 .menu-category-btn.active {
-  background: #4361ee;
+  background: var(--accent-primary);
   color: white;
-  border-color: #4361ee;
+  border-color: var(--accent-primary);
 }
 
 .menu-items {
@@ -4029,6 +4043,7 @@ export default {
   gap: 12px;
   padding: 16px;
   border-radius: 12px;
+  background: var(--bg-tertiary);
 }
 
 .menu-item-image {
@@ -4054,12 +4069,12 @@ export default {
   margin: 0 0 4px 0;
   font-size: 16px;
   font-weight: 600;
-  color: #2d3748;
+  color: var(--text-primary);
 }
 
 .item-desc {
   margin: 0 0 8px 0;
-  color: #718096;
+  color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.4;
 }
@@ -4072,7 +4087,7 @@ export default {
 
 .item-price {
   font-weight: 600;
-  color: #4361ee;
+  color: var(--accent-primary);
   font-size: 16px;
 }
 
@@ -4098,16 +4113,12 @@ export default {
 .day-select {
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-light);
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.5);
-  color: #ffffff;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
   font-size: 16px;
   appearance: none;
-  background-image: url("data:image/svg+xml;charset=US-ASCII,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'><path fill='%236B7280' d='M2 0L0 2h4zm0 5L0 3h4z'/></svg>");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  background-size: 12px;
 }
 
 .schedule-list {
@@ -4120,13 +4131,13 @@ export default {
   display: flex;
   gap: 12px;
   padding: 16px;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--bg-tertiary);
   border-radius: 12px;
 }
 
 .schedule-time {
   font-weight: 600;
-  color: #4361ee;
+  color: var(--accent-primary);
   min-width: 80px;
   font-size: 14px;
 }
@@ -4138,12 +4149,12 @@ export default {
 .schedule-details strong {
   display: block;
   margin-bottom: 4px;
-  color: #4361ee;
+  color: var(--text-primary);
 }
 
 .schedule-details p {
   margin: 0 0 8px 0;
-  color: #718096;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
@@ -4155,50 +4166,11 @@ export default {
 
 .group-tag {
   padding: 4px 8px;
-  background: #1a202c;
+  background: var(--bg-secondary);
   border-radius: 8px;
   font-size: 12px;
-  color: #4361ee;
-  border: 1px solid #4361ee;
-}
-
-.modal-actions {
-  position: sticky;
-  bottom: 0;
-  background: white;
-  padding: 16px 20px;
-  border-top: 1px solid #f1f5f9;
-  display: flex;
-  gap: 12px;
-}
-
-.action-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 16px;
-  border-radius: 12px;
-  font-size: 16px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  cursor: pointer;
-  background: #1a202c;
-}
-
-.action-btn:active {
-  transform: scale(0.98);
-}
-
-.action-btn.secondary {
-  background: #1a202c;
-  color: #4a5568;
-}
-
-.action-btn.primary {
-  background: #4361ee;
-  color: white;
+  color: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
 }
 
 /* Состояния загрузки */
@@ -4208,7 +4180,7 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: #1a202c;
+  background: var(--bg-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4219,20 +4191,20 @@ export default {
 .loading-content {
   text-align: center;
   padding: 30px;
-  background: #1a202c;
+  background: var(--card-bg);
   border-radius: 20px;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .loading-spinner-large {
   width: 50px;
   height: 50px;
-  border: 3px solid #f1f5f9;
-  border-top: 3px solid #4361ee;
+  border: 3px solid var(--bg-tertiary);
+  border-top: 3px solid var(--accent-primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin: 0 auto 16px;
-  box-shadow: 0 4px 30px #3a0ca3;
+  box-shadow: 0 4px 30px var(--accent-secondary);
 }
 
 .loading-progress {
@@ -4242,7 +4214,7 @@ export default {
 .progress-bar {
   width: 200px;
   height: 4px;
-  background: #e2e8f0;
+  background: var(--bg-tertiary);
   border-radius: 2px;
   overflow: hidden;
   margin-bottom: 8px;
@@ -4250,19 +4222,19 @@ export default {
 
 .progress-fill {
   height: 100%;
-  background: #4361ee;
+  background: var(--accent-primary);
   transition: width 0.3s ease;
 }
 
 .progress-text {
   font-size: 12px;
-  color: #718096;
+  color: var(--text-tertiary);
 }
 
 .empty-state {
   text-align: center;
   padding: 120px 20px;
-  color: #718096;
+  color: var(--text-tertiary);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4271,7 +4243,7 @@ export default {
 
 .empty-state i {
   font-size: 48px;
-  color: #cbd5e0;
+  color: var(--text-tertiary);
   margin-bottom: 8px;
 }
 
@@ -4279,7 +4251,7 @@ export default {
   margin: 0;
   font-size: 16px;
   font-weight: 500;
-  color: #4a5568;
+  color: var(--text-secondary);
 }
 
 @keyframes spin {
@@ -4404,10 +4376,6 @@ export default {
   .bottom-panel {
     padding-bottom: env(safe-area-inset-bottom);
   }
-  
-  .modal-actions {
-    padding-bottom: calc(16px + env(safe-area-inset-bottom));
-  }
 }
 
 /* Улучшение touch-интерфейса */
@@ -4425,24 +4393,33 @@ button {
   }
 }
 
-/* Темная тема поддержка */
+/* Поддержка системных предпочтений */
 @media (prefers-color-scheme: dark) {
-  .mobile-container {
-    background: #1a202c;
+  .mobile-container:not(.light) {
+    --bg-primary: #0f1419;
+    --bg-secondary: #1a202c;
+    --bg-tertiary: #2d3748;
+    --text-primary: #f7fafc;
+    --text-secondary: #e2e8f0;
+    --text-tertiary: #a0aec0;
+    --accent-primary: #4f46e5;
+    --accent-secondary: #6366f1;
+    --border-light: rgba(255, 255, 255, 0.08);
+    --border-medium: rgba(255, 255, 255, 0.12);
+    --shadow-light: rgba(0, 0, 0, 0.3);
+    --shadow-medium: rgba(0, 0, 0, 0.4);
+    --card-bg: rgba(26, 32, 44, 0.95);
+    --menu-bg: #1a202c;
+    --map-bg: #0f1419;
   }
-  
-  .mobile-nav {
-    background: rgba(26, 32, 44, 0.98);
-    border-bottom-color: rgba(255, 255, 255, 0.08);
-  }
-  
-  .nav-action-btn {
-    background: #2d3748;
-    color: #e2e8f0;
-  }
-  
-  .logo-text {
-    color: #e2e8f0;
-  }
+}
+
+/* Адаптация для тёмной темы SVG */
+.mobile-container.dark .audience-rect {
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+.mobile-container.dark .audience-label {
+  text-shadow: 0 0 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.8);
 }
 </style>
