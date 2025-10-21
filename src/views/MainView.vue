@@ -58,7 +58,7 @@
       <div v-if="showMultipleResultsNotification" class="search-notification glassmorphism">
         <div class="notification-content">
           <i class="fas fa-info-circle"></i>
-          <span>Найдено несколько аудиторий. Перейдите на этажи с результатами:</span>
+          <span>{{ notificationMessage }}</span>
         </div>
         <button @click="closeNotification" class="notification-close">
           <i class="fas fa-times"></i>
@@ -114,19 +114,41 @@
 
         <!-- Панель истории -->
         <div v-if="activePanel === 'history'" class="history-panel">
-          <h3 class="panel-title"><i class="fas fa-history"></i> История поиска</h3>
+          <div class="panel-header">
+            <h3 class="panel-title"><i class="fas fa-history"></i> История поиска</h3>
+            <button 
+              v-if="searchHistory.length" 
+              @click="clearSearchHistory" 
+              class="clear-history-btn"
+              title="Очистить историю"
+            >
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+          
           <ul v-if="searchHistory.length" class="history-list">
             <li 
               v-for="(item, index) in searchHistory" 
-              :key="index"
+              :key="item.id || index"
               @click="applySearchHistory(item)"
               class="history-item"
+              :title="`Нажмите, чтобы найти ${item.term || item.query}`"
             >
-              <i class="fas" :class="getHistoryIcon(item.type)"></i>
+              <i class="fas" :class="getHistoryIcon(item.type || item.search_type)"></i>
               <div class="history-content">
-                <span class="history-term">"{{ item.term }}"</span>
-                <span class="history-type">{{ item.type }}</span>
-                <span class="history-time">{{ item.timestamp }}</span>
+                <span class="history-term">"{{ item.term || item.query }}"</span>
+                <div class="history-details">
+                  <span class="history-type">{{ getHistoryTypeLabel(item.type || item.search_type) }}</span>
+                  <span class="history-time">{{ formatHistoryTime(item.timestamp || item.created_at) }}</span>
+                  <span v-if="item.resultsCount !== undefined || item.results_count !== undefined" 
+                        class="history-results">
+                    Найдено: {{ item.resultsCount || item.results_count || 0 }}
+                  </span>
+                </div>
+                <div v-if="item.corpus || item.floor" class="history-location">
+                  <span v-if="item.corpus">Корпус {{ item.corpus }}</span>
+                  <span v-if="item.floor">, Этаж {{ item.floor }}</span>
+                </div>
               </div>
             </li>
           </ul>
@@ -560,12 +582,23 @@ export default {
     const showFullscreen = ref(false);
     const floorTransition = ref(false);
     const mapLoaded = ref(false);
+    const favoriteAudiences = ref([]);
     
     // Таймеры для debounce
     let searchAudienceTimeout = null;
     let searchGroupTimeout = null;
     let searchTeacherTimeout = null;
     
+    const updateLastLogin = async () => {
+      if (user.value) {
+        try {
+          await axios.post('/api/profile/update-last-login');
+        } catch (error) {
+          console.error('Ошибка обновления времени входа:', error);
+        }
+      }
+    };
+
     // Константы
     const corpuses = ['1', '2'];
     const floors = ['1', '2', '3', '4'];
@@ -607,6 +640,12 @@ export default {
     // Computed properties
     const viewModeIcon = computed(() => {
       return viewMode.value === '2d' ? 'fa-cube' : 'fa-map';
+    });
+
+    const notificationMessage = computed(() => {
+      return searchHistory.value.length === 0 
+        ? 'История поиска очищена' 
+        : 'Найдено несколько аудиторий. Перейдите на этажи с результатами:';
     });
 
     const viewModeText = computed(() => {
@@ -887,16 +926,19 @@ export default {
       return highlightedAudiences.value.has(audience.id);
     };
 
-    const searchAudiences = () => {
+    const searchAudiences = async () => {
       if (audienceSearch.value.trim().length >= 3) {
         const results = searchResultsAudiences.value;
         searchResults.value = results;
-        
+
         if (results.length === 1) {
           // Если найден один результат - переходим к нему
           const audience = results[0];
           selectCorpus(audience.corpus);
           selectFloor(audience.floor);
+          
+          // Сохраняем в историю поиска - ПЕРЕДАЕМ ФАКТИЧЕСКИЙ ЗАПРОС
+          await addToSearchHistory(audienceSearch.value.trim(), 'Аудитория', results.length);
           
           // Центрируем карту на аудитории (для 2D режима)
           setTimeout(() => {
@@ -906,7 +948,7 @@ export default {
           // Подсвечиваем аудиторию
           highlightedAudiences.value.clear();
           highlightedAudiences.value.add(audience.id);
-          
+
         } else if (results.length > 1) {
           // Если найдено несколько результатов
           showMultipleResultsNotification.value = true;
@@ -915,6 +957,9 @@ export default {
             highlightedAudiences.value.add(audience.id);
           });
           
+          // Сохраняем в историю поиска - ПЕРЕДАЕМ ФАКТИЧЕСКИЙ ЗАПРОС
+          await addToSearchHistory(audienceSearch.value.trim(), 'Аудитория', results.length);
+          
           // Автоматически скрываем уведомление через 5 секунд
           setTimeout(() => {
             showMultipleResultsNotification.value = false;
@@ -922,9 +967,9 @@ export default {
         } else {
           highlightedAudiences.value.clear();
           showMultipleResultsNotification.value = false;
+          // Сохраняем даже если результатов нет, но запрос был
+          await addToSearchHistory(audienceSearch.value.trim(), 'Аудитория', 0);
         }
-        
-        addToSearchHistory(audienceSearch.value, 'Аудитория');
       } else {
         searchResults.value = [];
         highlightedAudiences.value.clear();
@@ -978,6 +1023,10 @@ export default {
         const groupSchedule = response.data;
         
         highlightedAudiences.value.clear();
+        await logSearchActivity('group', groupSearch.value, groupSchedule.length);
+        
+        // Сохраняем в историю поиска - ПЕРЕДАЕМ ФАКТИЧЕСКИЙ ЗАПРОС
+        await addToSearchHistory(groupSearch.value.trim(), 'Группа', groupSchedule.length);
         
         groupSchedule.forEach(item => {
           if (item.audience_id) {
@@ -985,7 +1034,6 @@ export default {
           }
         });
         
-        addToSearchHistory(groupSearch.value, 'Группа');
       } catch (error) {
         console.error('Ошибка поиска по группам:', error);
         highlightedAudiences.value.clear();
@@ -1001,25 +1049,70 @@ export default {
       try {
         const response = await axios.get(`/api/schedule/teacher/${encodeURIComponent(teacherSearch.value.trim())}`);
         const teacherSchedule = response.data;
+
+        await logSearchActivity('teacher', teacherSearch.value, teacherSchedule.length);
+        
+        // Сохраняем в историю поиска - ПЕРЕДАЕМ ФАКТИЧЕСКИЙ ЗАПРОС
+        await addToSearchHistory(teacherSearch.value.trim(), 'Преподаватель', teacherSchedule.length);
         
         highlightedAudiences.value.clear();
-        
+      
         teacherSchedule.forEach(item => {
           if (item.audience_id) {
             highlightedAudiences.value.add(item.audience_id);
           }
         });
         
-        addToSearchHistory(teacherSearch.value, 'Преподаватель');
       } catch (error) {
         console.error('Ошибка поиска по преподавателям:', error);
         highlightedAudiences.value.clear();
       }
     };
 
+    const toggleFavorite = async (audience) => {
+      if (!user.value) {
+        return;
+      }
+
+      try {
+        const isCurrentlyFavorite = favoriteAudiences.value.some(fav => fav.audience_id === audience.id);
+        
+        if (isCurrentlyFavorite) {
+          await axios.delete(`/api/profile/favorites/${audience.id}`);
+          favoriteAudiences.value = favoriteAudiences.value.filter(fav => fav.audience_id !== audience.id);
+        } else {
+          const response = await axios.post('/api/profile/favorites', { audience_id: audience.id });
+          // Добавляем в локальное состояние
+          favoriteAudiences.value.push(response.data.favorite);
+        }
+        
+        // Логируем активность
+        await axios.post('/api/profile/activity', {
+          activity_type: 'favorite',
+          description: `${isCurrentlyFavorite ? 'Удалена из избранного' : 'Добавлена в избранное'} аудитория ${audience.num_audiences}`
+        });
+        
+      } catch (error) {
+        console.error('Ошибка обновления избранного:', error);
+      }
+    };
+
+    const fetchFavorites = async () => {
+      if (!user.value) return;
+      
+      try {
+        const response = await axios.get('/api/profile/favorites');
+        favoriteAudiences.value = response.data;
+      } catch (error) {
+        console.error('Ошибка загрузки избранного:', error);
+      }
+    };
+
     const debounceSearchAudiences = () => {
       clearTimeout(searchAudienceTimeout);
-      searchAudienceTimeout = setTimeout(searchAudiences, 500);
+      searchAudienceTimeout = setTimeout(async () => {
+        await searchAudiences();
+      }, 500);
     };
 
     const debounceSearchGroups = () => {
@@ -1032,41 +1125,192 @@ export default {
       searchTeacherTimeout = setTimeout(searchTeachers, 500);
     };
 
-    const addToSearchHistory = (term, type) => {
-      const existingIndex = searchHistory.value.findIndex(
+    const addToSearchHistory = async (term, type, resultsCount = 0) => {
+      console.log('Сохранение в историю:', { term, type, resultsCount });
+      // Добавьте проверку на пустую строку
+      if (!term || term.trim() === '') {
+        return;
+      }
+      
+      if (!user.value) {
+        // Для неавторизованных пользователей сразу сохраняем в localStorage
+        saveToLocalStorage(term, type, resultsCount);
+        return;
+      }
+      
+      try {
+        await axios.post('/api/profile/search-history', {
+          search_type: type.toLowerCase(),
+          query: term,
+          results_count: resultsCount,
+          corpus: selectedCorpus.value,
+          floor: selectedFloor.value
+        });
+        
+        // После сохранения в БД обновляем историю
+        await loadSearchHistory();
+        
+      } catch (error) {
+        console.error('Ошибка сохранения истории поиска:', error);
+        // В случае ошибки сохраняем в localStorage как запасной вариант
+        saveToLocalStorage(term, type, resultsCount);
+      }
+    };
+
+    const saveToLocalStorage = (term, type, resultsCount = 0) => {
+      // Добавьте проверку на пустую строку
+      if (!term || term.trim() === '') {
+        return;
+      }
+      
+      const history = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+      
+      const existingIndex = history.findIndex(
         item => item.term === term && item.type === type
       );
       
       if (existingIndex !== -1) {
-        searchHistory.value[existingIndex].timestamp = new Date().toLocaleTimeString();
+        // Обновляем существующую запись
+        history[existingIndex] = {
+          ...history[existingIndex],
+          timestamp: new Date().toLocaleTimeString(),
+          resultsCount: resultsCount,
+          corpus: selectedCorpus.value,
+          floor: selectedFloor.value
+        };
       } else {
-        searchHistory.value.unshift({
-          term,
+        // Добавляем новую запись
+        history.unshift({
+          id: Date.now(), // Добавляем ID для ключа
+          term: term.trim(), // Обрезаем пробелы
           type,
-          timestamp: new Date().toLocaleTimeString()
+          timestamp: new Date().toLocaleTimeString(),
+          resultsCount: resultsCount,
+          corpus: selectedCorpus.value,
+          floor: selectedFloor.value
         });
       }
       
-      if (searchHistory.value.length > 10) {
-        searchHistory.value = searchHistory.value.slice(0, 10);
+      // Ограничиваем историю 10 записями
+      if (history.length > 10) {
+        history.splice(10);
+      }
+      
+      localStorage.setItem('searchHistory', JSON.stringify(history));
+      
+      // Обновляем локальное состояние
+      if (!user.value) {
+        searchHistory.value = history;
       }
     };
 
-    const applySearchHistory = (item) => {
-      switch (item.type) {
-        case 'Аудитория':
-          audienceSearch.value = item.term;
-          searchAudiences();
+    const loadSearchHistory = async () => {
+      if (user.value) {
+        // Загружаем из базы данных для авторизованных пользователей
+        try {
+          const response = await axios.get('/api/profile/search-history');
+          console.log('Raw response from API:', response.data); // Отладочное сообщение
+          
+          // Просто присваиваем данные как есть
+          searchHistory.value = response.data;
+          
+          console.log('Final search history:', searchHistory.value); // Отладочное сообщение
+        } catch (error) {
+          console.error('Ошибка загрузки истории поиска:', error);
+          loadFromLocalStorage();
+        }
+      } else {
+        // Для неавторизованных пользователей используем localStorage
+        loadFromLocalStorage();
+      }
+    };
+
+    const getHistoryTypeLabel = (type) => {
+      const types = {
+        'audience': 'Аудитория',
+        'group': 'Группа',
+        'teacher': 'Преподаватель',
+        'аудитория': 'Аудитория',
+        'группа': 'Группа',
+        'преподаватель': 'Преподаватель'
+      };
+      return types[type.toLowerCase()] || type;
+    };
+
+
+    const loadFromLocalStorage = () => {
+      const history = JSON.parse(localStorage.getItem('searchHistory') || '[]');
+      searchHistory.value = history;
+    };
+
+    const applySearchHistory = async (item) => {
+      // Закрываем панель истории
+      activePanel.value = null;
+      
+      // Очищаем предыдущие поисковые запросы
+      audienceSearch.value = '';
+      groupSearch.value = '';
+      teacherSearch.value = '';
+      
+      // Определяем тип поиска (поддерживаем разные форматы)
+      const searchType = item.type || item.search_type;
+      const searchTerm = item.term || item.query;
+      
+      console.log('Применение истории:', { searchType, searchTerm, item });
+      
+      switch (searchType.toLowerCase()) {
+        case 'аудитория':
+        case 'audience':
+          audienceSearch.value = searchTerm;
+          // Ждем обновления DOM и запускаем поиск
+          await nextTick();
+          await searchAudiences();
           break;
-        case 'Группа':
-          groupSearch.value = item.term;
-          searchGroups();
+          
+        case 'группа':
+        case 'group':
+          groupSearch.value = searchTerm;
+          await nextTick();
+          await searchGroups();
           break;
-        case 'Преподаватель':
-          teacherSearch.value = item.term;
-          searchTeachers();
+          
+        case 'преподаватель':
+        case 'teacher':
+          teacherSearch.value = searchTerm;
+          await nextTick();
+          await searchTeachers();
+          break;
+          
+        default:
+          console.warn('Неизвестный тип поиска:', searchType);
           break;
       }
+      
+      // Если есть информация о корпусе и этаже - переходим туда
+      if (item.corpus) {
+        selectCorpus(item.corpus);
+      }
+      if (item.floor) {
+        selectFloor(item.floor);
+      }
+    };
+    
+    const clearSearchHistory = async () => {
+      if (user.value) {
+        try {
+          await axios.delete('/api/profile/search-history');
+        } catch (error) {
+          console.error('Ошибка очистки истории поиска:', error);
+        }
+      }
+      localStorage.removeItem('searchHistory');
+      searchHistory.value = [];
+      
+      // Показываем сообщение об успешной очистке
+      showMultipleResultsNotification.value = true;
+      setTimeout(() => {
+        showMultipleResultsNotification.value = false;
+      }, 3000);
     };
 
     const openModal = async (audience) => {
@@ -1464,27 +1708,61 @@ export default {
       }
     };
 
-    const formatTime = (timeString) => {
-      if (!timeString) return '';
+    const formatTime = (dateString) => {
+      if (!dateString) return '';
       
-      // Если время уже в формате HH:MM, возвращаем как есть
-      if (typeof timeString === 'string' && timeString.match(/^\d{1,2}:\d{2}$/)) {
-        return timeString;
-      }
-      
-      // Если это объект Date или строка с секундами
-      const date = new Date(timeString);
-      if (isNaN(date.getTime())) {
-        // Если не валидная дата, пытаемся извлечь часы и минуты из строки
-        const match = timeString.toString().match(/(\d{1,2}):(\d{2})/);
-        if (match) {
-          return `${match[1]}:${match[2]}`;
+      try {
+        // Если это уже отформатированная строка, возвращаем как есть
+        if (typeof dateString === 'string' && dateString.includes(':')) {
+          return dateString;
         }
-        return timeString;
+        
+        // Если это объект Date или timestamp
+        const date = new Date(dateString);
+        
+        // Проверяем, что дата валидна
+        if (isNaN(date.getTime())) {
+          return new Date().toLocaleTimeString('ru-RU', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
+        }
+        
+        return date.toLocaleTimeString('ru-RU', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        });
+      } catch (error) {
+        console.error('Ошибка форматирования времени:', error);
+        return new Date().toLocaleTimeString('ru-RU', { 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        });
+      }
+    };
+
+    const formatHistoryTime = (timestamp) => {
+      if (!timestamp) return '';
+      
+      // Если это уже отформатированное время
+      if (typeof timestamp === 'string' && timestamp.includes(':')) {
+        return timestamp;
       }
       
-      // Форматируем как HH:MM
-      return date.toTimeString().slice(0, 5);
+      // Если это дата из базы данных
+      try {
+        const date = new Date(timestamp);
+        if (!isNaN(date.getTime())) {
+          return date.toLocaleTimeString('ru-RU', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
+        }
+      } catch (error) {
+        console.error('Ошибка форматирования времени истории:', error);
+      }
+      
+      return timestamp;
     };
 
     const createAudienceLabel = (audience, audience3D, color) => {
@@ -1728,11 +2006,33 @@ export default {
       await fetchAudiences();
       await fetchGroups();
       await fetchTeachers();
+      await loadSearchHistory();
       
       initializePanzoom();
       
       mapLoaded.value = await checkImage(currentMapImage.value);
+      
+      // Обновляем время последнего входа
+      if (user.value) {
+        await updateLastLogin();
+        await fetchFavorites();
+      }
     });
+
+    const logSearchActivity = async (type, query, resultsCount = 0) => {
+      if (!user.value) return;
+      
+      try {
+        await axios.post('/api/profile/activity', {
+          activity_type: 'search',
+          search_type: type,
+          query: query,
+          results_count: resultsCount
+        });
+      } catch (error) {
+        console.error('Ошибка логирования поиска:', error);
+      }
+    };
 
     onUnmounted(() => {
       cleanup3D();
@@ -1841,7 +2141,16 @@ export default {
       toggleTheme,
       formatTime,
       floorsWithSearchResults,
-      closeNotification
+      closeNotification,
+      formatTime,
+      formatHistoryTime,
+      loadSearchHistory,
+      getHistoryTypeLabel,
+      saveToLocalStorage,
+      addToSearchHistory,
+      applySearchHistory,
+      notificationMessage,
+      clearSearchHistory,
     };
   }
 };
@@ -2211,6 +2520,49 @@ export default {
   outline: none;
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.1);
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.clear-history-btn {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.clear-history-btn:hover {
+  background-color: var(--bg-tertiary);
+  color: #e53e3e;
+}
+
+.history-details {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.history-results {
+  font-size: 0.8rem;
+  color: var(--accent-primary);
+  background: rgba(67, 97, 238, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.history-location {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
 }
 
 /* Стили для истории поиска */
